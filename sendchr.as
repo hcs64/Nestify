@@ -50,7 +50,7 @@ function init_sendchr()
     sta dlist_start_jmp
 
     // init current dlist status
-    assign_16i(dlist_next_byte, dlist_0)
+    assign_16i(dlist_next_byte, dlist_0+0x37C)
 
     // fill flip_nametable
     ldx #0x10
@@ -77,7 +77,6 @@ function init_sendchr()
 // command size in A, blocks until space frees up
 function check_for_space()
 {
-    rts
     sec // extra byte for possible RTS
     adc dlist_next_byte+0
     sta tmp_addr+0
@@ -134,10 +133,20 @@ space_next_byte_greater:
     bmi enough_space
 
 out_of_space:
-    // note: if there are no dlists ready, the one we check against
-    // here will be the one in progress.... we would then be stuck,
-    // so we need to end this dlist even though we're not at the NMI
-    // limit yet
+    // if there are no dlists ready, the one we check against
+    // here will be the one in progress....
+    
+    // if this is the first command, we're actually completely empty, not full
+    lda dlist_cycles_left+0
+    cmp #lo(MAX_NMI_CYCLES)
+    bne space_stuck
+    lda dlist_cycles_left+1
+    cmp #hi(MAX_NMI_CYCLES)
+    beq enough_space
+
+space_stuck:
+    // otherwise we're stuck, so we need to end this dlist even though we're
+    // not at the NMI limit yet
     ldx dlist_count
     if (equal) {
         finalize_dlist()
@@ -152,27 +161,42 @@ enough_space:
 function check_for_cycles()
 {
     //
-    ldx dlist_cycles_left+1 // high
-    if (zero) {
-        cmp dlist_cycles_left+0 // low
-        if (minus) {
-            finalize_dlist()
-            setup_new_dlist()
-        }
+    sta tmp_byte
+
+cycles_retry_loop:
+
+    lda dlist_cycles_left+0
+    sec
+    sbc tmp_byte
+    sta dlist_cycles_left+0
+
+    lda dlist_cycles_left+1
+    sbc #0
+    sta dlist_cycles_left+1
+
+    if (minus) {
+        finalize_dlist()
+        setup_new_dlist()
+        jmp cycles_retry_loop
     }
 }
 
 function finalize_dlist()
 {
     // finalize the current dlist
-    lda #$0x60  // RTS
-    sta [dlist_next_byte,X] // X is zero
+    lda #$60    // RTS
+    ldy #0
+    sta [dlist_next_byte], Y
 
     inc dlist_count
 
-    inc dlist_next_byte+0
+    clc
+    lda #1
+    adc dlist_next_byte+0
+    sta dlist_next_byte+0
     lda #0
     adc dlist_next_byte+1
+    sta dlist_next_byte+1
 }
 
 // blocks if already at max
@@ -201,12 +225,8 @@ function add_inst_1()
     ldy #0
     sta [dlist_next_byte],Y
 
-    inc dlist_next_byte+0
-    tya
-    adc dlist_next_byte+1
-    sta dlist_next_byte+1
-
-    check_dlist_wrap()
+    lda #1
+    advance_next_byte()
 }
 
 // A = 1st byte, X = 2nd byte
@@ -218,14 +238,8 @@ function add_inst_2()
     txa
     sta [dlist_next_byte],Y
 
-    lda dlist_next_byte+0
-    adc #2 // carry will be clear
-    sta dlist_next_byte+0
-    lda #0
-    adc dlist_next_byte+1
-    sta dlist_next_byte+1
-
-    check_dlist_wrap()
+    lda #2
+    advance_next_byte()
 }
 
 // A = 1st byte, X = 2nd byte, tmp_byte = 3rd byte
@@ -240,34 +254,37 @@ function add_inst_3()
     lda tmp_byte
     sta [dlist_next_byte],Y
 
-    lda dlist_next_byte+0
-    adc #3 // carry will be clear
+    lda #3
+    advance_next_byte()
+}
+
+// number of byets in A, will perform inc and wrap on dlist_next_byte
+function advance_next_byte()
+{
+    clc
+    adc dlist_next_byte+0
     sta dlist_next_byte+0
     lda #0
     adc dlist_next_byte+1
     sta dlist_next_byte+1
 
-    check_dlist_wrap()
-}
-
-// dlist_next_byte high byte in A, will perform wrap on dlist_next_byte
-function check_dlist_wrap()
-{
     cmp #hi(DLIST_LAST_CMD_START)
-    if (equal) {
-        lda dlist_next_byte+0
-        cmp #lo(DLIST_LAST_CMD_START)
-    }
+    bne no_dlist_wrap
+
+    lda dlist_next_byte+0
+    cmp #lo(DLIST_LAST_CMD_START)
     beq no_dlist_wrap
     bmi no_dlist_wrap
 
-    sec
-    lda dlist_next_byte+0
-    sbc #lo(DLIST_WORST_CASE_SIZE)
-    sta dlist_next_byte+0
-    // will always start on first page
-    lda #hi(dlist_0)
-    sta dlist_next_byte+1
+    lda #$EA    // NOP
+    ldx dlist_next_byte
+    do {
+        sta (DLIST_LAST_CMD_START&0xff00), X
+        inx
+        cpx #lo(dlist_wrap_jmp)
+    } while (not equal)
+    
+    assign_16i(dlist_next_byte, dlist_0)
 
 no_dlist_wrap:
 }

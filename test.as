@@ -57,6 +57,8 @@ no_dlists:
 
 done_dlists:
 
+    vram_clear_address()
+
     pla
     tay
     pla
@@ -125,6 +127,30 @@ interrupt.start noreturn main()
     lda #$0
     sta cmd_addr+1
     lda #$FF
+    sta cmd_byte
+    cmd_or_one_byte()
+
+    lda #$8
+    sta cmd_addr+0
+    lda #$0
+    sta cmd_addr+1
+    lda #$10
+    sta cmd_byte
+    cmd_or_one_byte()
+
+    lda #$9
+    sta cmd_addr+0
+    lda #$0
+    sta cmd_addr+1
+    lda #$10
+    sta cmd_byte
+    cmd_or_one_byte()
+
+    lda #$A
+    sta cmd_addr+0
+    lda #$0
+    sta cmd_addr+1
+    lda #$10
     sta cmd_byte
     cmd_or_one_byte()
 
