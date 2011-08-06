@@ -1,10 +1,11 @@
 #define MAX_NMI_CYCLES 2200
 
+// 62 cycles
 zp_writer_rom:
-    stx PPU.ADDRESS
-    sty PPU.ADDRESS
-    lda #00 // 0
-    sta PPU.IO
+    stx PPU.ADDRESS //  4
+    sty PPU.ADDRESS //  4
+    lda #00 // 0        2 * 8
+    sta PPU.IO      //  4 * 8
     lda #00 // 1
     sta PPU.IO
     lda #00 // 2
@@ -19,7 +20,7 @@ zp_writer_rom:
     sta PPU.IO
     lda #00 // 7
     sta PPU.IO
-    rts
+    rts             //  6
 zp_writer_rom_end:
 
 dlist_wrap_jmp_rom:
@@ -50,7 +51,8 @@ function init_sendchr()
     sta dlist_start_jmp
 
     // init current dlist status
-    assign_16i(dlist_next_byte, dlist_0+0x37C)
+    //assign_16i(dlist_next_byte, dlist_0+0x37C)
+    assign_16i(dlist_next_byte, dlist_0)
 
     // fill flip_nametable
     ldx #0x10
@@ -242,9 +244,10 @@ function add_inst_2()
     advance_next_byte()
 }
 
-// A = 1st byte, X = 2nd byte, tmp_byte = 3rd byte
+// A = 1st byte, X = 2nd byte, Y = 3rd byte
 function add_inst_3()
 {
+    sty tmp_byte
     ldy #0
     sta [dlist_next_byte],Y
     iny
@@ -300,8 +303,8 @@ function sendchr_finish_frame()
 // VRAM access library
 
 // Y = address low, X = address high, A = value to OR
-// 38 cycles
-function vram_or_copy()
+// 34 cycles
+function vram_byte_or_update()
 {
     stx $2006   // 4
     sty $2006   // 4
@@ -323,7 +326,7 @@ function cmd_or_one_byte()
 {
     lda #9
     check_for_space()
-    lda #50
+    lda #46
     check_for_cycles()
 
     lda #$A0        // ldy imm: 2 cycles, 2 bytes
@@ -338,9 +341,121 @@ function cmd_or_one_byte()
     ldx cmd_byte
     add_inst_2()
 
-    lda #$20        // jsr: 6 + 38 cycles, 3 bytes
-    ldx #lo(vram_or_copy)
-    ldy #hi(vram_or_copy)
-    sty tmp_byte
+    lda #$20        // jsr: 6 + 34 cycles, 3 bytes
+    ldx #lo(vram_byte_or_update)
+    ldy #hi(vram_byte_or_update)
+    add_inst_3()
+}
+
+inline cmd_or_2007_sta(src, dst)
+{
+    lda #$AD    // lda abs: 4 cycles, 3 bytes
+    ldx #$07
+    ldy #$20
+    add_inst_3()
+
+    lda #$09    // ora imm: 2 cycles, 2 bytes
+    ldx (src)
+    add_inst_2()
+
+    lda #$85    // sta zp: 3 cycles, 2 bytes
+    ldx #(dst)
+    add_inst_2()
+}
+
+// cmd_addr = VRAM address
+// cmd_byte = 8 bytes to OR
+function cmd_or_tile_copy()
+{
+    lda #74
+    check_for_space()
+    lda #158
+    check_for_cycles()
+
+    lda #$A0    // ldy imm: 2 cycles, 2 bytes
+    ldy cmd_addr+0
+    add_inst_2()
+
+    lda #$A2    // ldx imm: 2 cycles, 2 bytes
+    ldy cmd_addr+1
+    ldx flip_nametable, Y
+    add_inst_2()
+
+    lda #$8E    // stx abs: 4 cycles, 3 bytes
+    ldx #$06
+    ldy #$20
+    add_inst_3()
+
+    lda #$8C    // sty abs: 4 cycles, 3 bytes
+    ldx #$06
+    ldy #$20
+    add_inst_3()
+
+    lda #$AD    // lda abs: 4 cycles, 3 bytes
+    ldx #$07
+    ldy #$20
+    add_inst_3()
+
+    cmd_or_2007_sta(cmd_byte+0,zp_immed_0)  // 9 cycles, 7 bytes * 8
+    cmd_or_2007_sta(cmd_byte+1,zp_immed_1)
+    cmd_or_2007_sta(cmd_byte+2,zp_immed_2)
+    cmd_or_2007_sta(cmd_byte+3,zp_immed_3)
+    cmd_or_2007_sta(cmd_byte+4,zp_immed_4)
+    cmd_or_2007_sta(cmd_byte+5,zp_immed_5)
+    cmd_or_2007_sta(cmd_byte+6,zp_immed_6)
+    cmd_or_2007_sta(cmd_byte+7,zp_immed_7)
+
+    lda #$A2    // ldx imm: 2 cycles, 2 bytes
+    ldx cmd_addr+1
+    add_inst_2()
+
+    lda #$20    // jsr: 6 + 62 cycles, 3 bytes
+    ldx #lo(zp_writer)
+    ldy #hi(zp_writer)
+    add_inst_3()
+}
+
+function cmd_or_tile_update()
+{
+    lda #72
+    check_for_space()
+    lda #156
+    check_for_cycles()
+
+    lda #$A0    // ldy imm: 2 cycles, 2 bytes
+    ldx cmd_addr+0
+    add_inst_2()
+
+    lda #$A2    // ldx imm: 2 cycles, 2 bytes
+    ldx cmd_addr+1
+    add_inst_2()
+
+    lda #$8E    // stx abs: 4 cycles, 3 bytes
+    ldx #$06
+    ldy #$20
+    add_inst_3()
+
+    lda #$8C    // sty abs: 4 cycles, 3 bytes
+    ldx #$06
+    ldy #$20
+    add_inst_3()
+
+    lda #$AD    // lda abs: 4 cycles, 3 bytes
+    ldx #$07
+    ldy #$20
+    add_inst_3()
+
+    cmd_or_2007_sta(cmd_byte+0,zp_immed_0)  // 9 cycles, 7 bytes * 8
+    cmd_or_2007_sta(cmd_byte+1,zp_immed_1)
+    cmd_or_2007_sta(cmd_byte+2,zp_immed_2)
+    cmd_or_2007_sta(cmd_byte+3,zp_immed_3)
+    cmd_or_2007_sta(cmd_byte+4,zp_immed_4)
+    cmd_or_2007_sta(cmd_byte+5,zp_immed_5)
+    cmd_or_2007_sta(cmd_byte+6,zp_immed_6)
+    cmd_or_2007_sta(cmd_byte+7,zp_immed_7)
+
+    lda #$20    // jsr: 6 + 62 cycles, 3 bytes
+    ldx #lo(zp_writer)
+    ldy #hi(zp_writer)
     add_inst_3()
 }

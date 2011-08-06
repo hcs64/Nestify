@@ -34,7 +34,7 @@ byte dlist_read_idx
 byte dlist_write_idx
 
 word cmd_addr
-byte cmd_byte
+byte cmd_byte[8]
 
 #ram.end
 

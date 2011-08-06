@@ -130,29 +130,58 @@ interrupt.start noreturn main()
     sta cmd_byte
     cmd_or_one_byte()
 
+    lda #$C
+    sta cmd_addr+0
+    lda #$0
+    sta cmd_addr+1
+    lda #$FF
+    sta cmd_byte
+    cmd_or_one_byte()
+
     lda #$8
     sta cmd_addr+0
     lda #$0
     sta cmd_addr+1
     lda #$10
-    sta cmd_byte
-    cmd_or_one_byte()
+    sta cmd_byte+0
+    sta cmd_byte+1
+    sta cmd_byte+2
+    sta cmd_byte+3
+    sta cmd_byte+4
+    sta cmd_byte+5
+    sta cmd_byte+6
+    sta cmd_byte+7
+    cmd_or_tile_update()
 
-    lda #$9
+    lda #$F
     sta cmd_addr+0
     lda #$0
     sta cmd_addr+1
-    lda #$10
+    lda #$C3
     sta cmd_byte
     cmd_or_one_byte()
 
-    lda #$A
+    lda #$0
     sta cmd_addr+0
     lda #$0
     sta cmd_addr+1
-    lda #$10
-    sta cmd_byte
-    cmd_or_one_byte()
+    lda #$01
+    sta cmd_byte+0
+    asl A
+    sta cmd_byte+1
+    asl A
+    sta cmd_byte+2
+    asl A
+    sta cmd_byte+3
+    asl A
+    sta cmd_byte+4
+    asl A
+    sta cmd_byte+5
+    asl A
+    sta cmd_byte+6
+    asl A
+    sta cmd_byte+7
+    cmd_or_tile_update()
 
     sendchr_finish_frame()
     tracktiles_finish_frame()
