@@ -33,8 +33,29 @@ interrupt.nmi int_nmi()
     tya
     pha
 
+    ldx dlist_count
+    beq no_dlists
+
+    dex
+    stx dlist_count
+
+    ldx dlist_read_idx
+    x_assign_16_16(dlist_start, dlists)
+    txa
+    clc
+    adc #2
+    and #MAX_DLISTS_MOD_MASK
+    sta dlist_read_idx
+
     lda PPU.STATUS
     jsr dlist_start_jmp
+
+    jmp done_dlists
+
+no_dlists:
+    // may want to do an error message or count here
+
+done_dlists:
 
     pla
     tay
@@ -79,6 +100,8 @@ vwait2:
     bpl vwait2
 }
 
+/******************************************************************************/
+
 interrupt.start noreturn main()
 {
     system_initialize_custom()
@@ -95,6 +118,8 @@ interrupt.start noreturn main()
     ppu_ctl0_assign(#CR_NMI)
     //ppu_ctl1_assign(#CR_BACKVISIBLE|CR_SPRITESVISIBLE|CR_BACKNOCLIP|CR_SPRNOCLIP)
     ppu_ctl1_assign(#CR_BACKVISIBLE)
+
+    // should do random pixels here
 
     forever {}
 }
