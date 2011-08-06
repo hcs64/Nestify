@@ -24,6 +24,14 @@ function init_tracktiles()
     sta other_frame_mask
 }
 
+function tracktiles_finish_frame()
+{
+    lda this_frame_mask
+    ldx other_frame_mask
+    sta other_frame_mask
+    stx this_frame_mask
+}
+
 // Y:X have block #
 function add_prim()
 {

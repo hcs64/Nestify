@@ -121,6 +121,17 @@ interrupt.start noreturn main()
 
     // should do random pixels here
 
+    lda #$0
+    sta tmp_addr+0
+    lda #$0
+    sta tmp_addr+1
+    lda #$FF
+    sta tmp_byte
+    cmd_or_one_byte()
+
+    sendchr_finish_frame()
+    tracktiles_finish_frame()
+
     forever {}
 }
 

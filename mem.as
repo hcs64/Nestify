@@ -14,10 +14,6 @@ shared byte _ppu_ctl0, _ppu_ctl1
 // only set by NMI after init
 shared byte _joypad0
 
-// pattern table high bytes
-shared byte this_frame_hi
-shared byte other_frame_hi
-
 // tile status bits
 byte this_frame_mask
 byte other_frame_mask
@@ -37,6 +33,10 @@ word dlists[MAX_DLISTS]
 byte dlist_read_idx
 byte dlist_write_idx
 
+#ram.end
+
+#ram.org 0x30, 0x20
+byte flip_nametable[0x20]
 #ram.end
 
 #ram.org 0xD1, 0x2f

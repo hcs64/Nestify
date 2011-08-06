@@ -52,6 +52,19 @@ function init_sendchr()
     // init current dlist status
     assign_16i(dlist_next_byte, dlist_0)
 
+    // fill flip_nametable
+    ldx #0x10
+    ldy #0
+    lda #0
+    clc
+    do {
+        sta flip_nametable+0x10, Y
+        eor #0x10
+        sta flip_nametable, Y
+        iny
+        dex
+    } while (not zero)
+
     // init dlists queue
     lda #0
     sta dlist_read_idx
@@ -59,12 +72,6 @@ function init_sendchr()
     sta dlist_count
 
     setup_new_dlist()
-
-    // begin rendering to pattern table 0
-    lda #0
-    sta this_frame_hi
-    lda #$10
-    sta other_frame_hi
 }
 
 // command size in A, blocks until space frees up
@@ -175,4 +182,137 @@ function setup_new_dlist()
     adc #2
     and #MAX_DLISTS_MOD_MASK
     sta dlist_write_idx
+}
+
+// A = 1st byte
+function add_inst_1()
+{
+    ldy #0
+    sta [dlist_next_byte],Y
+
+    inc dlist_next_byte+0
+    tya
+    adc dlist_next_byte+1
+    sta dlist_next_byte+1
+
+    check_dlist_wrap()
+}
+
+// A = 1st byte, X = 2nd byte
+function add_inst_2()
+{
+    ldy #0
+    sta [dlist_next_byte],Y
+    iny
+    txa
+    sta [dlist_next_byte],Y
+
+    lda dlist_next_byte+0
+    adc #2 // carry will be clear
+    sta dlist_next_byte+0
+    tya
+    adc dlist_next_byte+1
+    sta dlist_next_byte+1
+
+    check_dlist_wrap()
+}
+
+// A = 1st byte, X = 2nd byte, tmp_byte = 3rd byte
+function add_inst_3()
+{
+    ldy #0
+    sta [dlist_next_byte],Y
+    iny
+    txa
+    sta [dlist_next_byte],Y
+    iny
+    lda tmp_byte
+    sta [dlist_next_byte],Y
+
+    lda dlist_next_byte+0
+    adc #3 // carry will be clear
+    sta dlist_next_byte+0
+    tya
+    adc dlist_next_byte+1
+    sta dlist_next_byte+1
+
+    check_dlist_wrap()
+}
+
+// dlist_next_byte high byte in A, will perform wrap on dlist_next_byte
+function check_dlist_wrap()
+{
+    cmp #hi(DLIST_LAST_CMD_START)
+    if (equal) {
+        lda dlist_next_byte+0
+        cmp #lo(DLIST_LAST_CMD_START)
+    }
+    beq no_dlist_wrap
+    bmi no_dlist_wrap
+
+    sec
+    lda dlist_next_byte+0
+    sbc #lo(DLIST_WORST_CASE_SIZE)
+    sta dlist_next_byte+0
+    // will always start on first page
+    lda #hi(dlist_0)
+    sta dlist_next_byte+1
+
+no_dlist_wrap:
+}
+
+function sendchr_finish_frame()
+{
+    setup_new_dlist()
+}
+
+/******************************************************************************/
+
+// VRAM access library
+
+// Y = address low, X = address high, A = value to OR
+// 38 cycles
+function vram_or_copy()
+{
+    sty $2006   // 4
+    stx $2006   // 4
+    cmp $2007   // 4 ; flush VRAM read buffer
+    ora $2007   // 4
+    sty $2006   // 4
+    ldy flip_nametable, X   // 4
+    sty $2006   // 4
+    sta $2007   // 4
+    // rts ; 6
+}
+
+/******************************************************************************/
+
+// command generation
+
+// tmp_addr = VRAM address
+// tmp_byte2 = byte to OR
+function cmd_or_one_byte()
+{
+    lda #9
+    check_for_space()
+    lda #50
+    check_for_cycles()
+
+    lda #$A0        // ldy imm: 2 cycles, 2 bytes
+    ldx tmp_addr+0
+    add_inst_2()
+
+    lda #$A2        // ldx imm: 2 cycles, 2 bytes
+    ldx tmp_addr+1
+    add_inst_2()
+
+    lda #$A9        // lda imm: 2 cycles, 2 bytes
+    ldx tmp_byte2
+    add_inst_2()
+
+    lda #$20        // jsr: 6 + 38 cycles, 3 bytes
+    ldx #lo(vram_or_copy)
+    ldy #hi(vram_or_copy)
+    sty tmp_byte
+    add_inst_3()
 }
