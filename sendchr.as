@@ -77,9 +77,11 @@ function init_sendchr()
 // command size in A, blocks until space frees up
 function check_for_space()
 {
+    rts
     sec // extra byte for possible RTS
     adc dlist_next_byte+0
     sta tmp_addr+0
+    lda #0
     adc dlist_next_byte+1
     sta tmp_addr+1
 
@@ -138,6 +140,7 @@ out_of_space:
     // limit yet
     ldx dlist_count
     if (equal) {
+        finalize_dlist()
         setup_new_dlist()
     }
     jmp space_retry_loop
@@ -153,15 +156,23 @@ function check_for_cycles()
     if (zero) {
         cmp dlist_cycles_left+0 // low
         if (minus) {
-            // finalize the current dlist
-            lda #$0x60  // RTS
-            sta [dlist_next_byte,X] // X is zero
-
-            inc dlist_next_byte+0
-            adc dlist_next_byte+1
+            finalize_dlist()
             setup_new_dlist()
         }
     }
+}
+
+function finalize_dlist()
+{
+    // finalize the current dlist
+    lda #$0x60  // RTS
+    sta [dlist_next_byte,X] // X is zero
+
+    inc dlist_count
+
+    inc dlist_next_byte+0
+    lda #0
+    adc dlist_next_byte+1
 }
 
 // blocks if already at max
@@ -210,7 +221,7 @@ function add_inst_2()
     lda dlist_next_byte+0
     adc #2 // carry will be clear
     sta dlist_next_byte+0
-    tya
+    lda #0
     adc dlist_next_byte+1
     sta dlist_next_byte+1
 
@@ -232,7 +243,7 @@ function add_inst_3()
     lda dlist_next_byte+0
     adc #3 // carry will be clear
     sta dlist_next_byte+0
-    tya
+    lda #0
     adc dlist_next_byte+1
     sta dlist_next_byte+1
 
@@ -263,6 +274,7 @@ no_dlist_wrap:
 
 function sendchr_finish_frame()
 {
+    finalize_dlist()
     setup_new_dlist()
 }
 
@@ -274,12 +286,11 @@ function sendchr_finish_frame()
 // 38 cycles
 function vram_or_copy()
 {
-    sty $2006   // 4
     stx $2006   // 4
+    sty $2006   // 4
     cmp $2007   // 4 ; flush VRAM read buffer
     ora $2007   // 4
-    sty $2006   // 4
-    ldy flip_nametable, X   // 4
+    stx $2006   // 4
     sty $2006   // 4
     sta $2007   // 4
     // rts ; 6
@@ -289,8 +300,8 @@ function vram_or_copy()
 
 // command generation
 
-// tmp_addr = VRAM address
-// tmp_byte2 = byte to OR
+// cmd_addr = VRAM address
+// cmd_byte = byte to OR
 function cmd_or_one_byte()
 {
     lda #9
@@ -299,15 +310,15 @@ function cmd_or_one_byte()
     check_for_cycles()
 
     lda #$A0        // ldy imm: 2 cycles, 2 bytes
-    ldx tmp_addr+0
+    ldx cmd_addr+0
     add_inst_2()
 
     lda #$A2        // ldx imm: 2 cycles, 2 bytes
-    ldx tmp_addr+1
+    ldx cmd_addr+1
     add_inst_2()
 
     lda #$A9        // lda imm: 2 cycles, 2 bytes
-    ldx tmp_byte2
+    ldx cmd_byte
     add_inst_2()
 
     lda #$20        // jsr: 6 + 38 cycles, 3 bytes

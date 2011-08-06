@@ -108,7 +108,6 @@ interrupt.start noreturn main()
 
     clear_vram()
     init_vram()
-
     init_tracktiles()
     init_sendchr()
 
@@ -122,11 +121,11 @@ interrupt.start noreturn main()
     // should do random pixels here
 
     lda #$0
-    sta tmp_addr+0
+    sta cmd_addr+0
     lda #$0
-    sta tmp_addr+1
+    sta cmd_addr+1
     lda #$FF
-    sta tmp_byte
+    sta cmd_byte
     cmd_or_one_byte()
 
     sendchr_finish_frame()

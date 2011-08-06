@@ -19,7 +19,7 @@ byte this_frame_mask
 byte other_frame_mask
 
 // small dlist stuff
-byte dlist_cycles_left
+word dlist_cycles_left
 shared byte dlist_count
 
 byte dlist_start_jmp
@@ -32,6 +32,9 @@ word dlist_next_byte
 word dlists[MAX_DLISTS]
 byte dlist_read_idx
 byte dlist_write_idx
+
+word cmd_addr
+byte cmd_byte
 
 #ram.end
 
