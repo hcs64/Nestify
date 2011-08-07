@@ -26,31 +26,126 @@ function init_tracktiles()
 
 function tracktiles_finish_frame()
 {
+    // update any stragglers from last frame
+    ldx #0
+    do {
+        inx
+        stx tmp_byte2
+
+        lda tile_status, X
+        bit other_frame_mask
+        if (not zero) {
+            eor other_frame_mask
+            sta tile_status, X
+
+            ldy #0
+            sty cmd_addr+1
+            txa
+            asl A
+            rol cmd_addr+1
+            asl A
+            rol cmd_addr+1
+            asl A
+            rol cmd_addr+1
+            sta cmd_addr+0
+
+            cmd_tile_copy()
+        }
+
+        ldx tmp_byte2
+    } while (not zero)
+
+    ldx #(TILES_WIDE*TILES_HIGH)-0x100
+    do {
+        dex
+        stx tmp_byte2
+
+        lda tile_status+0x100, X
+        bit other_frame_mask
+        if (not zero) {
+            eor other_frame_mask
+            sta tile_status+0x100, X
+
+            ldy #1
+            sty cmd_addr+1
+            txa
+            asl A
+            rol cmd_addr+1
+            asl A
+            rol cmd_addr+1
+            asl A
+            rol cmd_addr+1
+            sta cmd_addr+0
+
+            cmd_tile_copy()
+        }
+
+        ldx tmp_byte2
+    } while (not zero)
+
     lda this_frame_mask
     ldx other_frame_mask
     sta other_frame_mask
     stx this_frame_mask
 }
 
+inline tracktiles_finish_frame_0(page)
+{
+}
+
 // Y:X have block #
+// preserves X and Y
+// return Z clear if whole tile must be updated
+// return C set if set is ok
 function add_prim()
 {
     cpy #0
     if (equal) {
-        ldy tile_status, X
-        iny
-        tya
-        ora this_frame_mask
-        sta tile_status, X
+        add_prim_0(0)
         rts
     } else {
-        ldy tile_status+0x100, X
-        iny
-        tya
-        ora this_frame_mask
-        sta tile_status+0x100, X
+        add_prim_0(0x100)
     }
 }
+
+inline add_prim_0(page)
+{
+    lda tile_status+page, X
+    ora this_frame_mask
+
+    bit count_mask_rom
+    if (zero) {
+        ora #1  // first count
+        bit other_frame_mask
+        sec
+        if (not equal) {
+            eor other_frame_mask
+            sta tile_status+page, X
+            // set ok, tile is dirty
+            rts
+        }
+
+        sta tile_status+page, X
+        lda #0  // set Z
+        // set ok, tile is clean
+        rts
+    }
+
+    // at least one prim already
+    clc
+    adc #1
+    bit other_frame_mask
+    if (not equal) {
+        eor other_frame_mask
+        sta tile_status+page, X
+        // copy needed, tile is dirty
+        rts
+    }
+    sta tile_status+page, X
+    lda #0  // set Z
+    // update needed, tile is clean
+}
+byte count_mask_rom[1] = {0x1f}
 
 // Y:X have block #
 function remove_prim()

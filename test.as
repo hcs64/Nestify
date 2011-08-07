@@ -122,69 +122,23 @@ interrupt.start noreturn main()
 
     // should do random pixels here
 
-    lda #$0
-    sta cmd_addr+0
-    lda #$0
-    sta cmd_addr+1
+    ldy #0
+    ldx #1
     lda #$FF
-    sta cmd_byte
-    cmd_or_one_byte()
+    or_line()
 
-    lda #$C
-    sta cmd_addr+0
-    lda #$0
-    sta cmd_addr+1
-    lda #$FF
-    sta cmd_byte
-    cmd_or_one_byte()
+    ldy #0
+    ldx #8
+    lda #$F0
+    or_line()
 
-    lda #$8
-    sta cmd_addr+0
-    lda #$0
-    sta cmd_addr+1
-    lda #$10
-    sta cmd_byte+0
-    sta cmd_byte+1
-    sta cmd_byte+2
-    sta cmd_byte+3
-    sta cmd_byte+4
-    sta cmd_byte+5
-    sta cmd_byte+6
-    sta cmd_byte+7
-    cmd_or_tile_update()
+    ldy #0
+    ldx #8
+    lda #$07
+    or_line()
 
-    lda #$F
-    sta cmd_addr+0
-    lda #$0
-    sta cmd_addr+1
-    lda #$C3
-    sta cmd_byte
-    cmd_or_one_byte()
-
-    lda #$0
-    sta cmd_addr+0
-    lda #$0
-    sta cmd_addr+1
-    lda #$01
-    sta cmd_byte+0
-    asl A
-    sta cmd_byte+1
-    asl A
-    sta cmd_byte+2
-    asl A
-    sta cmd_byte+3
-    asl A
-    sta cmd_byte+4
-    asl A
-    sta cmd_byte+5
-    asl A
-    sta cmd_byte+6
-    asl A
-    sta cmd_byte+7
-    cmd_or_tile_update()
-
-    sendchr_finish_frame()
     tracktiles_finish_frame()
+    sendchr_finish_frame()
 
     forever {}
 }
@@ -217,6 +171,7 @@ function init_vram()
 
     init_palette()
     init_attrs()
+    init_names()
 }
 
 function init_palette()
@@ -276,3 +231,163 @@ function init_attrs()
 }
 
 /******************************************************************************/
+
+function init_names()
+{
+    lda #hi(NAME_TABLE_0_ADDRESS)
+    sta PPU.ADDRESS
+    lda #lo(NAME_TABLE_0_ADDRESS)
+    sta PPU.ADDRESS
+
+    // top margin
+    ldx #4
+    lda #0xFF
+    do {
+        ldy #32
+        do {
+            sta PPU.IO
+            dey
+        } while (not zero)
+        dex
+    } while (not zero)
+
+    ldx #21
+    lda #0
+    sta tmp_byte2
+    lda #0xFF
+    do {
+        stx tmp_byte
+
+        // left margin
+        ldy #4
+        do {
+            sta PPU.IO
+            dey
+        } while (not zero)
+
+        // left half of bitmap
+        ldy #12
+        ldx tmp_byte2
+        do {
+            stx PPU.IO
+            inx
+            dey
+        } while (not zero)
+
+        // right half of bitmap
+        ldy #12
+        ldx tmp_byte2
+        do {
+            stx PPU.IO
+            inx
+            dey
+        } while (not zero)
+        stx tmp_byte2
+
+        // right margin
+        ldy #4
+        do {
+            sta PPU.IO
+            dey
+        } while (not zero)
+
+        ldx tmp_byte
+        dex
+    } while (not zero)
+
+    // bottom margin
+    ldx #5
+    lda #0xFF
+    do {
+        ldy #32
+        do {
+            sta PPU.IO
+            dey
+        } while (not zero)
+        dex
+    } while (not zero)
+
+}
+
+/******************************************************************************/
+
+// top level update commands
+
+// Y:X = line address (8x block addres + line offset)
+function or_line()
+{
+    sta cmd_byte
+    stx cmd_addr+0
+    sty cmd_addr+1
+    sty tmp_byte
+
+    txa
+    lsr tmp_byte
+    ror A
+    lsr tmp_byte
+    ror A
+    lsr tmp_byte
+    ror A
+    tax
+    ldy tmp_byte
+
+    add_prim()
+
+    if (zero) {
+        // tile is clean
+
+        if (carry) {
+            // no previous prim, set is ok
+            cmd_set_one_byte()
+        } else {
+            // need to update (just this byte)
+            cmd_or_one_byte()
+        }
+    }
+    else
+    {
+        // tile is dirty
+
+        php
+
+        lda cmd_addr+0
+        and #7
+        sta tmp_byte
+
+        lda cmd_byte
+        ldx #0
+
+        ldy #7
+        do {
+            cpy tmp_byte
+            if (equal)
+            {
+                sta cmd_byte, Y
+            } else {
+                stx cmd_byte, Y
+            }
+            dey
+        } while (not minus)
+
+        lda cmd_addr+0
+        and #~7
+        sta cmd_addr+0
+
+        plp
+
+        if (carry) {
+            // no previous prim, set is ok
+            cmd_tile_set()
+        } else {
+            // need to copy
+            cmd_or_tile_copy()
+        }
+    }
+
+    lda #$0
+    sta cmd_addr+0
+    lda #$0
+    sta cmd_addr+1
+    lda #$FF
+    sta cmd_byte
+}
