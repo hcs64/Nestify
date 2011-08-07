@@ -35,6 +35,8 @@ byte dlist_write_idx
 
 word cmd_addr
 byte cmd_byte[8]
+byte cmd_size
+byte cmd_cycles
 
 #ram.end
 
@@ -62,6 +64,9 @@ byte zp_immed_7[5]  // NN ; sta $2007 ; rts
 #define COUNT_MASK      0x1F
 
 byte tile_status[TILES_WIDE*TILES_HIGH]
+
+byte test_frames
+byte test_lines
 
 #ram.end
 

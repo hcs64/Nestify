@@ -77,17 +77,19 @@ function init_sendchr()
     setup_new_dlist()
 }
 
-// command size in A, blocks until space frees up
-function check_for_space()
+// blocks until space frees up,
+// if cycles are full, creates new dlist or blocks if we're already at max
+function check_for_space_and_cycles()
 {
+retry_loop:
     sec // extra byte for possible RTS
+    lda cmd_size
     adc dlist_next_byte+0
     sta tmp_addr+0
     lda #0
     adc dlist_next_byte+1
     sta tmp_addr+1
 
-space_retry_loop:
     ldx dlist_read_idx
     lda dlist_next_byte+1
     cmp dlists+1, X
@@ -106,11 +108,11 @@ space_retry_loop:
         cmp dlists+0, X
         //beq out_of_space
     }
-    bpl out_of_space
 
-    // both start and end are less then read (or end is equal), no chance of
+    bpl out_of_space
+    // if both start and end are less then read (or end is equal), no chance of
     // overlap or wraparound
-    rts
+    jmp enough_space
 
 space_next_byte_greater:
     // check end for wraparound
@@ -138,6 +140,10 @@ space_next_byte_greater:
 out_of_space:
     // if there are no dlists ready, the one we check against
     // here will be the one in progress....
+    // in which case we're stuck, so we need to end this dlist even though we're
+    // not at the NMI limit yet
+    ldx dlist_count
+    bne retry_loop
     
     // if this is the first command, we're actually completely empty, not full
     lda dlist_cycles_left+0
@@ -148,29 +154,15 @@ out_of_space:
     beq enough_space
 
 space_stuck:
-    // otherwise we're stuck, so we need to end this dlist even though we're
-    // not at the NMI limit yet
-    ldx dlist_count
-    if (equal) {
-        finalize_dlist()
-        setup_new_dlist()
-    }
-    jmp space_retry_loop
+    finalize_dlist()
+    setup_new_dlist()
+    jmp retry_loop
 
 enough_space:
-}
-
-// cycle count in A, creates new dlist or blocks if we're already at max
-function check_for_cycles()
-{
-    //
-    sta tmp_byte
-
-cycles_retry_loop:
 
     lda dlist_cycles_left+0
     sec
-    sbc tmp_byte
+    sbc cmd_cycles
     sta dlist_cycles_left+0
 
     lda dlist_cycles_left+1
@@ -180,7 +172,7 @@ cycles_retry_loop:
     if (minus) {
         finalize_dlist()
         setup_new_dlist()
-        jmp cycles_retry_loop
+        jmp retry_loop
     }
 }
 
@@ -193,13 +185,15 @@ function finalize_dlist()
 
     inc dlist_count
 
-    clc
     lda #1
-    adc dlist_next_byte+0
-    sta dlist_next_byte+0
-    lda #0
-    adc dlist_next_byte+1
-    sta dlist_next_byte+1
+    advance_next_byte()
+    //clc
+    //lda #1
+    //adc dlist_next_byte+0
+    //sta dlist_next_byte+0
+    //lda #0
+    //adc dlist_next_byte+1
+    //sta dlist_next_byte+1
 }
 
 // blocks if already at max
@@ -262,7 +256,7 @@ function add_inst_3()
     advance_next_byte()
 }
 
-// number of byets in A, will perform inc and wrap on dlist_next_byte
+// number of bytes in A, will perform inc and wrap on dlist_next_byte
 function advance_next_byte()
 {
     clc
@@ -280,8 +274,8 @@ function advance_next_byte()
     beq no_dlist_wrap
     bmi no_dlist_wrap
 
+    tax
     lda #$EA    // NOP
-    ldx dlist_next_byte
     do {
         sta (DLIST_LAST_CMD_START&0xff00), X
         inx
@@ -388,10 +382,11 @@ function noreturn vram_copy_tile()
 // cmd_byte = byte to OR
 function cmd_or_one_byte()
 {
-    lda #9
-    check_for_space()
-    lda #46
-    check_for_cycles()
+    ldx #9
+    ldy #46
+    stx cmd_size
+    sty cmd_cycles
+    check_for_space_and_cycles()
 
     lda #$A0        // ldy imm: 2 cycles, 2 bytes
     ldx cmd_addr+0
@@ -415,10 +410,11 @@ function cmd_or_one_byte()
 // cmd_byte = byte to OR
 function cmd_and_one_byte()
 {
-    lda #9
-    check_for_space()
-    lda #46
-    check_for_cycles()
+    ldx #9
+    ldy #46
+    stx cmd_size
+    sty cmd_cycles
+    check_for_space_and_cycles()
 
     lda #$A0        // ldy imm: 2 cycles, 2 bytes
     ldx cmd_addr+0
@@ -442,10 +438,11 @@ function cmd_and_one_byte()
 // cmd_byte = byte to set
 function cmd_set_one_byte()
 {
-    lda #15
-    check_for_space()
-    lda #18
-    check_for_cycles()
+    ldx #15
+    ldy #18
+    stx cmd_size
+    sty cmd_cycles
+    check_for_space_and_cycles()
 
     lda #$A0        // ldy imm: 2 cycles, 2 bytes
     ldx cmd_addr+0
@@ -522,10 +519,11 @@ inline cmd_lda_sta(src, dst)
 // cmd_byte = 8 bytes to OR
 function cmd_or_tile_copy()
 {
-    lda #74
-    check_for_space()
-    lda #158
-    check_for_cycles()
+    ldx #74
+    ldy #158
+    stx cmd_size
+    sty cmd_cycles
+    check_for_space_and_cycles()
 
     lda #$A0    // ldy imm: 2 cycles, 2 bytes
     ldx cmd_addr+0
@@ -574,10 +572,11 @@ function cmd_or_tile_copy()
 // cmd_byte = 8 bytes to OR
 function cmd_or_tile_update()
 {
-    lda #72
-    check_for_space()
-    lda #156
-    check_for_cycles()
+    ldx #72
+    ldy #156
+    stx cmd_size
+    sty cmd_cycles
+    check_for_space_and_cycles()
 
     lda #$A0    // ldy imm: 2 cycles, 2 bytes
     ldx cmd_addr+0
@@ -621,10 +620,11 @@ function cmd_or_tile_update()
 // cmd_byte = 8 bytes to OR
 function cmd_and_tile_copy()
 {
-    lda #74
-    check_for_space()
-    lda #158
-    check_for_cycles()
+    ldx #74
+    ldy #158
+    stx cmd_size
+    sty cmd_cycles
+    check_for_space_and_cycles()
 
     lda #$A0    // ldy imm: 2 cycles, 2 bytes
     ldx cmd_addr+0
@@ -673,10 +673,11 @@ function cmd_and_tile_copy()
 // cmd_byte = 8 bytes to OR
 function cmd_and_tile_update()
 {
-    lda #72
-    check_for_space()
-    lda #156
-    check_for_cycles()
+    ldx #72
+    ldy #156
+    stx cmd_size
+    sty cmd_cycles
+    check_for_space_and_cycles()
 
     lda #$A0    // ldy imm: 2 cycles, 2 bytes
     ldx cmd_addr+0
@@ -720,10 +721,11 @@ function cmd_and_tile_update()
 // cmd_byte = 8 bytes to write
 function cmd_tile_set()
 {
-    lda #39
-    check_for_space()
-    lda #112
-    check_for_cycles()
+    ldx #39
+    ldy #112
+    stx cmd_size
+    sty cmd_cycles
+    check_for_space_and_cycles()
 
     cmd_lda_sta(cmd_byte+0,zp_immed_0)   // 5 cycles, 4 bytes * 8
     cmd_lda_sta(cmd_byte+1,zp_immed_1)
@@ -751,10 +753,11 @@ function cmd_tile_set()
 // cmd_addr = VRAM address
 function cmd_tile_clear()
 {
-    lda #5
-    check_for_space()
-    lda #54
-    check_for_cycles()
+    ldx #5
+    ldy #54
+    stx cmd_size
+    sty cmd_cycles
+    check_for_space_and_cycles()
 
     
     lda #$A9    // lda imm: 2 cycles, 2 bytes
@@ -770,10 +773,11 @@ function cmd_tile_clear()
 // cmd_addr = VRAM address
 function cmd_tile_copy()
 {
-    lda #7
-    check_for_space()
-    lda #149
-    check_for_cycles()
+    ldx #7
+    ldy #149
+    stx cmd_size
+    sty cmd_cycles
+    check_for_space_and_cycles()
 
     lda #$A0    // ldy imm: 2 cycles, 2 bytes
     ldx cmd_addr+0

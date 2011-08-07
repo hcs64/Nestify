@@ -41,6 +41,12 @@ interrupt.nmi int_nmi()
 
     ldx dlist_read_idx
     x_assign_16_16(dlist_start, dlists)
+
+    // DEBUG: clear out visited dlists
+    lda #0
+    sta dlists+0, X
+    sta dlists+1, X
+
     txa
     clc
     adc #2
@@ -122,31 +128,97 @@ interrupt.start noreturn main()
 
     // should do random pixels here
 
-    ldy #0
-    ldx #1
-    lda #0x18
-    and_line()
+    forever {
+        // add odds
+        ldx #100
+        do {
+            dex
+            stx test_lines
 
-    ldy #0
-    ldx #1
-    lda #$FF
-    or_line()
+            ldy #0
+            lda #$FF
+            or_line()
 
-    ldy #0
-    ldx #8
-    lda #$F0
-    or_line()
+            ldx test_lines
+            dex
+        } while (not zero)
 
-    ldy #0
-    ldx #8
-    lda #$07
-    or_line()
+        tracktiles_finish_frame()
+        sendchr_finish_frame()
 
+        ldx #20
+        do {
+            stx test_frames
 
-    tracktiles_finish_frame()
-    sendchr_finish_frame()
+            // add evens, remove odds
+            ldx #100
+            do {
+                stx test_lines
 
-    forever {}
+                ldy #0
+                lda #$FF
+                or_line()
+
+                ldx test_lines
+                dex
+                stx test_lines
+
+                ldy #0
+                lda #$FF
+                and_line()
+
+                ldx test_lines
+                dex
+            } while (not zero)
+
+            tracktiles_finish_frame()
+            sendchr_finish_frame()
+
+            // remove evens, add odds
+            ldx #100
+            do {
+                stx test_lines
+
+                ldy #0
+                lda #$FF
+                and_line()
+
+                ldx test_lines
+                dex
+                stx test_lines
+
+                ldy #0
+                lda #$FF
+                or_line()
+
+                ldx test_lines
+                dex
+            } while (not zero)
+
+            tracktiles_finish_frame()
+            sendchr_finish_frame()
+
+            ldx test_frames
+            dex
+        } while (not zero)
+
+        // remove odds
+        ldx #100
+        do {
+            dex
+            stx test_lines
+
+            ldy #0
+            lda #$FF
+            and_line()
+
+            ldx test_lines
+            dex
+        } while (not zero)
+
+        tracktiles_finish_frame()
+        sendchr_finish_frame()
+    }
 }
 
 /******************************************************************************/
@@ -409,7 +481,6 @@ function and_line()
     tax
     ldy tmp_byte
 
-#tell.bankoffset
     remove_prim()
 
     if (zero) {
