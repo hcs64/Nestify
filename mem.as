@@ -18,6 +18,8 @@ shared byte _joypad0
 byte this_frame_mask
 byte other_frame_mask
 
+byte cur_nametable_page
+
 // small dlist stuff
 word dlist_cycles_left
 shared byte dlist_count

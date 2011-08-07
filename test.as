@@ -118,11 +118,13 @@ interrupt.start noreturn main()
     init_vram()
     init_tracktiles()
     init_sendchr()
+    lda #0
+    sta cur_nametable_page
 
     // turn everything on
     vblank_wait()
     vram_clear_address()
-    ppu_ctl0_assign(#CR_NMI)
+    ppu_ctl0_assign(#CR_NMI|CR_BACKADDR1000)
     //ppu_ctl1_assign(#CR_BACKVISIBLE|CR_SPRITESVISIBLE|CR_BACKNOCLIP|CR_SPRNOCLIP)
     ppu_ctl1_assign(#CR_BACKVISIBLE)
 
@@ -143,8 +145,7 @@ interrupt.start noreturn main()
             dex
         } while (not zero)
 
-        tracktiles_finish_frame()
-        sendchr_finish_frame()
+        finish_frame()
 
         ldx #20
         do {
@@ -164,15 +165,14 @@ interrupt.start noreturn main()
                 stx test_lines
 
                 ldy #0
-                lda #$FF
+                lda #$0
                 and_line()
 
                 ldx test_lines
                 dex
             } while (not zero)
 
-            tracktiles_finish_frame()
-            sendchr_finish_frame()
+            finish_frame()
 
             // remove evens, add odds
             ldx #100
@@ -180,7 +180,7 @@ interrupt.start noreturn main()
                 stx test_lines
 
                 ldy #0
-                lda #$FF
+                lda #$0
                 and_line()
 
                 ldx test_lines
@@ -195,8 +195,7 @@ interrupt.start noreturn main()
                 dex
             } while (not zero)
 
-            tracktiles_finish_frame()
-            sendchr_finish_frame()
+            finish_frame()
 
             ldx test_frames
             dex
@@ -209,15 +208,12 @@ interrupt.start noreturn main()
             stx test_lines
 
             ldy #0
-            lda #$FF
+            lda #$0
             and_line()
 
             ldx test_lines
             dex
         } while (not zero)
-
-        tracktiles_finish_frame()
-        sendchr_finish_frame()
     }
 }
 
@@ -396,8 +392,10 @@ function or_line()
 {
     sta cmd_byte
     stx cmd_addr+0
-    sty cmd_addr+1
-    sty tmp_byte
+    tya
+    sta tmp_byte
+    ora cur_nametable_page
+    sta cmd_addr+1
 
     txa
     lsr tmp_byte
@@ -468,8 +466,10 @@ function and_line()
 {
     sta cmd_byte
     stx cmd_addr+0
-    sty cmd_addr+1
-    sty tmp_byte
+    tya
+    sta tmp_byte
+    ora cur_nametable_page
+    sta cmd_addr+1
 
     txa
     lsr tmp_byte
@@ -537,3 +537,21 @@ function and_line()
     }
 }
 
+function finish_frame()
+{
+    tracktiles_finish_frame()
+    sendchr_finish_frame()
+
+    do {
+        lda dlist_count
+        cmp #1
+    } while (not zero)
+
+    //lda _ppu_ctl0
+    //eor #CR_BACKADDR1000
+    //sta _ppu_ctl0
+
+    lda cur_nametable_page
+    eor #0x10
+    sta cur_nametable_page
+}

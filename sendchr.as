@@ -1,4 +1,4 @@
-#define MAX_NMI_CYCLES 2200
+#define MAX_NMI_CYCLES 2000
 
 // 62 cycles
 zp_writer_rom:
@@ -289,7 +289,31 @@ no_dlist_wrap:
 
 function sendchr_finish_frame()
 {
+    ldx #9
+    ldy #12
+    stx cmd_size
+    sty cmd_cycles
+
+    check_for_space_and_cycles()
+    lda #$A5        // lda zp:  3 cycles, 2 bytes
+    ldx #_ppu_ctl0
+    add_inst_2()
+
+    lda #$49        // eor imm: 2 cycles, 2 bytes
+    ldx #CR_BACKADDR1000
+    add_inst_2()
+
+    lda #$85        // sta zp:  3 cycles, 2 bytes
+    ldx #_ppu_ctl0
+    add_inst_2()
+
+    lda #$8D        // sta abs: 4 cycles, 3 bytes
+    ldx #$00
+    ldy #$20
+    add_inst_3()
+
     finalize_dlist()
+
     setup_new_dlist()
 }
 
