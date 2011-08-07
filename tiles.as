@@ -18,9 +18,6 @@ function init_tracktiles()
         sta tile_status+0x100, X
     } while (not zero)
 
-    lda #DIRTY_FRAME_1+2
-    sta tile_status+0
-
     lda #DIRTY_FRAME_0
     sta this_frame_mask
     lda #DIRTY_FRAME_1
