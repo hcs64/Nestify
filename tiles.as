@@ -18,6 +18,9 @@ function init_tracktiles()
         sta tile_status+0x100, X
     } while (not zero)
 
+    lda #DIRTY_FRAME_1+2
+    sta tile_status+0
+
     lda #DIRTY_FRAME_0
     sta this_frame_mask
     lda #DIRTY_FRAME_1
@@ -89,10 +92,6 @@ function tracktiles_finish_frame()
     stx this_frame_mask
 }
 
-inline tracktiles_finish_frame_0(page)
-{
-}
-
 // Y:X have block #
 // preserves X and Y
 // return Z clear if whole tile must be updated
@@ -145,24 +144,59 @@ inline add_prim_0(page)
     lda #0  // set Z
     // update needed, tile is clean
 }
-byte count_mask_rom[1] = {0x1f}
 
 // Y:X have block #
+// preserves X and Y
+// return Z clear if whole tile must be updated
+// return C set if bulk clear is ok
 function remove_prim()
 {
     cpy #0
     if (equal) {
-        ldy tile_status, X
-        dey
-        tya
-        ora this_frame_mask
-        sta tile_status, X
+        remove_prim_0(0)
         rts
     } else {
-        ldy tile_status+0x100, X
-        dey
-        tya
-        ora this_frame_mask
-        sta tile_status+0x100, X
+        remove_prim_0(0x100)
     }
 }
+
+inline remove_prim_0(page)
+{
+    lda tile_status+page, X
+    ora this_frame_mask
+
+    sec
+    sbc #1
+
+    bit count_mask_rom
+    if (zero) {
+        bit other_frame_mask
+        sec
+        if (not equal) {
+            eor other_frame_mask
+            sta tile_status+page, X
+            // clear ok, tile is dirty
+            rts
+        }
+
+        sta tile_status+page, X
+        lda #0  // set Z
+        // clear ok, tile is clean
+        rts
+    }
+
+    // not down to zero prims
+    clc
+    bit other_frame_mask
+    if (not equal) {
+        eor other_frame_mask
+        sta tile_status+page, X
+        // copy needed, tile is dirty
+        rts
+    }
+    sta tile_status+page, X
+    lda #0  // set Z
+    // update needed, tile is clean
+}
+
+byte count_mask_rom[1] = {0x1f}

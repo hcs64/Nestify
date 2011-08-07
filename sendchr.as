@@ -317,6 +317,38 @@ function vram_byte_or_update()
     // rts ; 6
 }
 
+// Y = address low, X = address high, A = value to OR
+// 34 cycles
+function vram_byte_and_update()
+{
+    stx $2006   // 4
+    sty $2006   // 4
+    cmp $2007   // 4 ; flush VRAM read buffer
+    and $2007   // 4
+    stx $2006   // 4
+    sty $2006   // 4
+    sta $2007   // 4
+    // rts ; 6
+}
+
+// A = fill value, Y = address low, X = address high
+// 46 cycles
+function vram_fill_tile()
+{
+    stx $2006       // 4
+    sty $2006       // 4
+
+    sta $2007       // 4 (0)
+    sta $2007       // 4 (1)
+    sta $2007       // 4 (2)
+    sta $2007       // 4 (3)
+    sta $2007       // 4 (4)
+    sta $2007       // 4 (5)
+    sta $2007       // 4 (6)
+    sta $2007       // 4 (7)
+    // rts ; 6
+}
+
 // Y = address low, X = address high
 // 139 cycles
 function noreturn vram_copy_tile()
@@ -348,7 +380,6 @@ function noreturn vram_copy_tile()
     jmp zp_writer   // 3 + 62
 }
 
-
 /******************************************************************************/
 
 // command generation
@@ -377,6 +408,33 @@ function cmd_or_one_byte()
     lda #$20        // jsr: 6 + 34 cycles, 3 bytes
     ldx #lo(vram_byte_or_update)
     ldy #hi(vram_byte_or_update)
+    add_inst_3()
+}
+
+// cmd_addr = VRAM address
+// cmd_byte = byte to OR
+function cmd_and_one_byte()
+{
+    lda #9
+    check_for_space()
+    lda #46
+    check_for_cycles()
+
+    lda #$A0        // ldy imm: 2 cycles, 2 bytes
+    ldx cmd_addr+0
+    add_inst_2()
+
+    lda #$A2        // ldx imm: 2 cycles, 2 bytes
+    ldx cmd_addr+1
+    add_inst_2()
+
+    lda #$A9        // lda imm: 2 cycles, 2 bytes
+    ldx cmd_byte
+    add_inst_2()
+
+    lda #$20        // jsr: 6 + 34 cycles, 3 bytes
+    ldx #lo(vram_byte_and_update)
+    ldy #hi(vram_byte_and_update)
     add_inst_3()
 }
 
@@ -425,6 +483,22 @@ inline cmd_or_2007_sta(src, dst)
     add_inst_3()
 
     lda #$09    // ora imm: 2 cycles, 2 bytes
+    ldx (src)
+    add_inst_2()
+
+    lda #$85    // sta zp: 3 cycles, 2 bytes
+    ldx #(dst)
+    add_inst_2()
+}
+
+inline cmd_and_2007_sta(src, dst)
+{
+    lda #$AD    // lda abs: 4 cycles, 3 bytes
+    ldx #$07
+    ldy #$20
+    add_inst_3()
+
+    lda #$29    // and imm: 2 cycles, 2 bytes
     ldx (src)
     add_inst_2()
 
@@ -544,6 +618,105 @@ function cmd_or_tile_update()
 }
 
 // cmd_addr = VRAM address
+// cmd_byte = 8 bytes to OR
+function cmd_and_tile_copy()
+{
+    lda #74
+    check_for_space()
+    lda #158
+    check_for_cycles()
+
+    lda #$A0    // ldy imm: 2 cycles, 2 bytes
+    ldx cmd_addr+0
+    add_inst_2()
+
+    lda #$A2    // ldx imm: 2 cycles, 2 bytes
+    ldy cmd_addr+1
+    ldx flip_nametable, Y
+    add_inst_2()
+
+    lda #$8E    // stx abs: 4 cycles, 3 bytes
+    ldx #$06
+    ldy #$20
+    add_inst_3()
+
+    lda #$8C    // sty abs: 4 cycles, 3 bytes
+    ldx #$06
+    ldy #$20
+    add_inst_3()
+
+    lda #$AD    // lda abs: 4 cycles, 3 bytes
+    ldx #$07
+    ldy #$20
+    add_inst_3()
+
+    cmd_and_2007_sta(cmd_byte+0,zp_immed_0)  // 9 cycles, 7 bytes * 8
+    cmd_and_2007_sta(cmd_byte+1,zp_immed_1)
+    cmd_and_2007_sta(cmd_byte+2,zp_immed_2)
+    cmd_and_2007_sta(cmd_byte+3,zp_immed_3)
+    cmd_and_2007_sta(cmd_byte+4,zp_immed_4)
+    cmd_and_2007_sta(cmd_byte+5,zp_immed_5)
+    cmd_and_2007_sta(cmd_byte+6,zp_immed_6)
+    cmd_and_2007_sta(cmd_byte+7,zp_immed_7)
+
+    lda #$A2    // ldx imm: 2 cycles, 2 bytes
+    ldx cmd_addr+1
+    add_inst_2()
+
+    lda #$20    // jsr: 6 + 62 cycles, 3 bytes
+    ldx #lo(zp_writer)
+    ldy #hi(zp_writer)
+    add_inst_3()
+}
+
+// cmd_addr = VRAM address
+// cmd_byte = 8 bytes to OR
+function cmd_and_tile_update()
+{
+    lda #72
+    check_for_space()
+    lda #156
+    check_for_cycles()
+
+    lda #$A0    // ldy imm: 2 cycles, 2 bytes
+    ldx cmd_addr+0
+    add_inst_2()
+
+    lda #$A2    // ldx imm: 2 cycles, 2 bytes
+    ldx cmd_addr+1
+    add_inst_2()
+
+    lda #$8E    // stx abs: 4 cycles, 3 bytes
+    ldx #$06
+    ldy #$20
+    add_inst_3()
+
+    lda #$8C    // sty abs: 4 cycles, 3 bytes
+    ldx #$06
+    ldy #$20
+    add_inst_3()
+
+    lda #$AD    // lda abs: 4 cycles, 3 bytes
+    ldx #$07
+    ldy #$20
+    add_inst_3()
+
+    cmd_and_2007_sta(cmd_byte+0,zp_immed_0)  // 9 cycles, 7 bytes * 8
+    cmd_and_2007_sta(cmd_byte+1,zp_immed_1)
+    cmd_and_2007_sta(cmd_byte+2,zp_immed_2)
+    cmd_and_2007_sta(cmd_byte+3,zp_immed_3)
+    cmd_and_2007_sta(cmd_byte+4,zp_immed_4)
+    cmd_and_2007_sta(cmd_byte+5,zp_immed_5)
+    cmd_and_2007_sta(cmd_byte+6,zp_immed_6)
+    cmd_and_2007_sta(cmd_byte+7,zp_immed_7)
+
+    lda #$20    // jsr: 6 + 62 cycles, 3 bytes
+    ldx #lo(zp_writer)
+    ldy #hi(zp_writer)
+    add_inst_3()
+}
+
+// cmd_addr = VRAM address
 // cmd_byte = 8 bytes to write
 function cmd_tile_set()
 {
@@ -572,6 +745,25 @@ function cmd_tile_set()
     lda #$20    // jsr: 6 + 62 cycles, 3 bytes
     ldx #lo(zp_writer)
     ldy #hi(zp_writer)
+    add_inst_3()
+}
+
+// cmd_addr = VRAM address
+function cmd_tile_clear()
+{
+    lda #5
+    check_for_space()
+    lda #54
+    check_for_cycles()
+
+    
+    lda #$A9    // lda imm: 2 cycles, 2 bytes
+    ldx #0
+    add_inst_2()
+
+    lda #$20    // jsr: 6 + 46 cycles, 3 bytes
+    ldx #lo(vram_fill_tile)
+    ldy #hi(vram_fill_tile)
     add_inst_3()
 }
 
