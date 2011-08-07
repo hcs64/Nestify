@@ -542,15 +542,6 @@ function finish_frame()
     tracktiles_finish_frame()
     sendchr_finish_frame()
 
-    do {
-        lda dlist_count
-        cmp #1
-    } while (not zero)
-
-    //lda _ppu_ctl0
-    //eor #CR_BACKADDR1000
-    //sta _ppu_ctl0
-
     lda cur_nametable_page
     eor #0x10
     sta cur_nametable_page
