@@ -132,13 +132,13 @@ interrupt.start noreturn main()
 
     forever {
         // add odds
-        ldx #100
+        ldx #254
         do {
             dex
             stx test_lines
 
             ldy #0
-            lda #$FF
+            lda #$F0
             or_line()
 
             ldx test_lines
@@ -152,12 +152,12 @@ interrupt.start noreturn main()
             stx test_frames
 
             // add evens, remove odds
-            ldx #100
+            ldx #254
             do {
                 stx test_lines
 
                 ldy #0
-                lda #$FF
+                lda #$0F
                 or_line()
 
                 ldx test_lines
@@ -175,7 +175,7 @@ interrupt.start noreturn main()
             finish_frame()
 
             // remove evens, add odds
-            ldx #100
+            ldx #254
             do {
                 stx test_lines
 
@@ -188,7 +188,7 @@ interrupt.start noreturn main()
                 stx test_lines
 
                 ldy #0
-                lda #$FF
+                lda #$F0
                 or_line()
 
                 ldx test_lines
@@ -202,7 +202,7 @@ interrupt.start noreturn main()
         } while (not zero)
 
         // remove odds
-        ldx #100
+        ldx #254
         do {
             dex
             stx test_lines

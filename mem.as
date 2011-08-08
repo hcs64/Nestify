@@ -43,6 +43,8 @@ byte cmd_cycles
 #ram.end
 
 #ram.org 0x30, 0x20
+// if we need space this can be put out of zero page with no extra cycle cost as
+// long as it doesn't cross a page boundary
 byte flip_nametable[0x20]
 #ram.end
 
