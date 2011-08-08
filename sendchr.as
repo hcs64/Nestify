@@ -217,7 +217,7 @@ function setup_new_dlist()
 }
 
 // A = 1st byte
-function add_inst_1()
+inline add_inst_1()
 {
     ldy #0
     sta [dlist_next_byte],Y
@@ -227,7 +227,7 @@ function add_inst_1()
 }
 
 // A = 1st byte, X = 2nd byte
-function add_inst_2()
+inline add_inst_2()
 {
     ldy #0
     sta [dlist_next_byte],Y
@@ -240,7 +240,7 @@ function add_inst_2()
 }
 
 // A = 1st byte, X = 2nd byte, Y = 3rd byte
-function add_inst_3()
+inline add_inst_3()
 {
     sty tmp_byte
     ldy #0
@@ -257,7 +257,7 @@ function add_inst_3()
 }
 
 // number of bytes in A, will perform inc and wrap on dlist_next_byte
-function advance_next_byte()
+inline advance_next_byte()
 {
     clc
     adc dlist_next_byte+0
@@ -267,8 +267,15 @@ function advance_next_byte()
     sta dlist_next_byte+1
 
     cmp #hi(DLIST_LAST_CMD_START)
-    bne no_dlist_wrap
+    bne no_low_check
 
+    advance_low_check()
+
+no_low_check:
+}
+
+function advance_low_check()
+{
     lda dlist_next_byte+0
     cmp #lo(DLIST_LAST_CMD_START)
     beq no_dlist_wrap
