@@ -131,90 +131,76 @@ interrupt.start noreturn main()
     // should do random pixels here
 
     forever {
-        // add odds
-        ldx #254
-        do {
-            dex
-            stx test_lines
-
-            ldy #0
-            lda #$F0
-            or_line()
-
-            ldx test_lines
-            dex
-        } while (not zero)
-
+        lda #$0f
+        or_lines()
         finish_frame()
 
-        ldx #20
-        do {
-            stx test_frames
+        lda #$f0
+        or_lines()
+        finish_frame()
 
-            // add evens, remove odds
-            ldx #254
-            do {
-                stx test_lines
+        lda #$f0
+        and_lines()
+        finish_frame()
 
-                ldy #0
-                lda #$0F
-                or_line()
+        lda #$0f
+        and_lines()
+        finish_frame()
+/*
+        lda #$0f
+        or_lines()
+        lda #$f0
+        or_lines()
+        finish_frame()
 
-                ldx test_lines
-                dex
-                stx test_lines
+        lda #$f0
+        and_lines()
+        lda #$0f
+        and_lines()
+        finish_frame()
+*/
 
-                ldy #0
-                lda #$0
-                and_line()
-
-                ldx test_lines
-                dex
-            } while (not zero)
-
-            finish_frame()
-
-            // remove evens, add odds
-            ldx #254
-            do {
-                stx test_lines
-
-                ldy #0
-                lda #$0
-                and_line()
-
-                ldx test_lines
-                dex
-                stx test_lines
-
-                ldy #0
-                lda #$F0
-                or_line()
-
-                ldx test_lines
-                dex
-            } while (not zero)
-
-            finish_frame()
-
-            ldx test_frames
-            dex
-        } while (not zero)
-
-        // remove odds
-        ldx #254
-        do {
-            dex
-            stx test_lines
-
-            ldy #0
-            lda #$0
-            and_line()
-
-            ldx test_lines
-            dex
-        } while (not zero)
     }
+}
+
+function and_lines()
+{
+    lines_loop(and_line)
+}
+
+function or_lines()
+{
+    lines_loop(or_line)
+}
+
+inline lines_loop(cmd)
+{
+    sta test_byte
+    ldx #254
+    do {
+        dex
+        stx test_lines
+
+        txa
+        and #~7
+        asl A
+        sta tmp_byte
+
+        lda #0
+        rol A
+        tay
+
+        txa
+        and #7
+        adc tmp_byte // c cleared by rol
+        tax
+
+        lda test_byte
+        cmd()
+        finish_frame()
+
+        ldx test_lines
+    } while (not zero)
 }
 
 /******************************************************************************/
@@ -390,6 +376,7 @@ function init_names()
 // Y:X = line address (8x block addres + line offset)
 function or_line()
 {
+#tell.bankoffset
     sta cmd_byte
     stx cmd_addr+0
     tya
@@ -464,6 +451,7 @@ function or_line()
 // Y:X = line address (8x block addres + line offset)
 function and_line()
 {
+#tell.bankoffset
     sta cmd_byte
     stx cmd_addr+0
     tya
