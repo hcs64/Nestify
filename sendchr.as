@@ -322,6 +322,8 @@ function sendchr_finish_frame()
     setup_new_dlist()
 }
 
+/******************************************************************************/
+
 // dlist processing during NMI
 function process_dlists()
 {
@@ -333,11 +335,6 @@ function process_dlists()
 
     ldx dlist_read_idx
     x_assign_16_16(dlist_start, dlists)
-
-    // DEBUG: clear out visited dlists
-    lda #0
-    sta dlists+0, X
-    sta dlists+1, X
 
     txa
     clc
