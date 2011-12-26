@@ -38,16 +38,16 @@ function tracktiles_finish_frame()
             eor other_frame_mask
             sta tile_status, X
 
-            ldy #0
-            sty cmd_addr+1
-            txa
-            asl A
-            rol cmd_addr+1
-            asl A
-            rol cmd_addr+1
-            asl A
-            rol cmd_addr+1
-            sta cmd_addr+0
+            stx cmd_addr+0
+            lda #0
+            asl cmd_addr+0
+            rol A
+            asl cmd_addr+0
+            rol A
+            asl cmd_addr+0
+            rol A
+            adc cur_nametable_page
+            sta cmd_addr+1
 
             cmd_tile_copy()
         }
@@ -66,16 +66,16 @@ function tracktiles_finish_frame()
             eor other_frame_mask
             sta tile_status+0x100, X
 
-            ldy #1
-            sty cmd_addr+1
-            txa
-            asl A
-            rol cmd_addr+1
-            asl A
-            rol cmd_addr+1
-            asl A
-            rol cmd_addr+1
-            sta cmd_addr+0
+            stx cmd_addr+0
+            lda #1
+            asl cmd_addr+0
+            rol A
+            asl cmd_addr+0
+            rol A
+            asl cmd_addr+0
+            rol A
+            adc cur_nametable_page
+            sta cmd_addr+1
 
             cmd_tile_copy()
         }
@@ -196,4 +196,4 @@ inline remove_prim_0(page)
     // update needed, tile is clean
 }
 
-byte count_mask_rom[1] = {0x1f}
+byte count_mask_rom[1] = {COUNT_MASK}

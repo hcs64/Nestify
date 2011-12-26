@@ -784,8 +784,8 @@ function cmd_tile_set()
 // cmd_addr = VRAM address
 function cmd_tile_clear()
 {
-    ldx #5
-    ldy #54
+    ldx #9
+    ldy #58
     stx cmd_size
     sty cmd_cycles
     check_for_space_and_cycles()
@@ -793,6 +793,14 @@ function cmd_tile_clear()
     
     lda #$A9    // lda imm: 2 cycles, 2 bytes
     ldx #0
+    add_inst_2()
+
+    lda #$A0    // ldy imm: 2 cycles, 2 bytes
+    ldx cmd_addr+0
+    add_inst_2()
+
+    lda #$A2    // ldx imm: 2 cycles, 2 bytes
+    ldx cmd_addr+1
     add_inst_2()
 
     lda #$20    // jsr: 6 + 46 cycles, 3 bytes
