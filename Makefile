@@ -2,7 +2,8 @@ SOURCES = \
 mem.as \
 test.as \
 sendchr.as \
-tiles.as
+tiles.as \
+lines.as
 
 EXE = test.nes
 

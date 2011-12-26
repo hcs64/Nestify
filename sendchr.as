@@ -1,3 +1,5 @@
+// display list stuff
+
 #define MAX_NMI_CYCLES 2000
 
 // 62 cycles
@@ -187,13 +189,6 @@ function finalize_dlist()
 
     lda #1
     advance_next_byte()
-    //clc
-    //lda #1
-    //adc dlist_next_byte+0
-    //sta dlist_next_byte+0
-    //lda #0
-    //adc dlist_next_byte+1
-    //sta dlist_next_byte+1
 }
 
 // blocks if already at max
@@ -215,6 +210,9 @@ function setup_new_dlist()
     and #MAX_DLISTS_MOD_MASK
     sta dlist_write_idx
 }
+
+
+/******************************************************************************/
 
 // A = 1st byte
 inline add_inst_1()
@@ -322,6 +320,37 @@ function sendchr_finish_frame()
     finalize_dlist()
 
     setup_new_dlist()
+}
+
+// dlist processing during NMI
+function process_dlists()
+{
+    ldx dlist_count
+    beq no_dlists
+
+    dex
+    stx dlist_count
+
+    ldx dlist_read_idx
+    x_assign_16_16(dlist_start, dlists)
+
+    // DEBUG: clear out visited dlists
+    lda #0
+    sta dlists+0, X
+    sta dlists+1, X
+
+    txa
+    clc
+    adc #2
+    and #MAX_DLISTS_MOD_MASK
+    sta dlist_read_idx
+
+    jsr dlist_start_jmp
+
+    rts
+
+no_dlists:
+    // may want to do an error message or count here
 }
 
 /******************************************************************************/

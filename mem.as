@@ -66,7 +66,7 @@ byte zp_immed_7[5]  // NN ; sta $2007 ; rts
 #define DIRTY_FRAME_0   0x80
 #define DIRTY_FRAME_1   0x40
 #define COUNT_MASK      0x1F
-#tell.bankoffset
+
 byte tile_status[TILES_WIDE*TILES_HIGH]
 
 byte test_byte
