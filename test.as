@@ -90,6 +90,9 @@ interrupt.start noreturn main()
     system_initialize_custom()
 
     clear_vram()
+    // reset latch
+    lda PPU.STATUS
+
     init_vram()
     init_tracktiles()
     init_sendchr()
@@ -106,6 +109,7 @@ interrupt.start noreturn main()
     // should do random pixels here
 
     forever {
+/*
         lda #$0f
         or_lines()
         finish_frame()
@@ -116,6 +120,23 @@ interrupt.start noreturn main()
 
         lda #$f0
         and_lines()
+        finish_frame()
+
+        lda #$0f
+        and_lines()
+        finish_frame()
+*/
+
+        lda #$0f
+        or_blocks()
+        finish_frame()
+
+        lda #$f0
+        or_lines()
+        finish_frame()
+
+        lda #$f0
+        and_blocks()
         finish_frame()
 
         lda #$0f
@@ -136,6 +157,59 @@ interrupt.start noreturn main()
 */
 
     }
+}
+
+function and_blocks()
+{
+    block_loop(and_block)
+}
+
+function or_blocks()
+{
+    block_loop(or_block)
+}
+
+inline block_loop(cmd)
+{
+    ldx #8
+    do {
+        dex
+        sta cmd_byte, X
+    } while (not zero)
+
+    ldx #32
+    do {
+        dex
+        stx test_lines
+
+        txa
+        sta tmp_byte
+
+        lda #0
+        asl tmp_byte
+        rol A
+        asl tmp_byte
+        rol A
+        asl tmp_byte
+        rol A
+        asl tmp_byte
+        rol A
+        tay
+
+        ldx tmp_byte
+        cmd()
+
+/*
+        lda test_lines
+        and #7
+        if (zero)
+        {
+            finish_frame()
+        }
+        */
+
+        ldx test_lines
+    } while (not zero)
 }
 
 function and_lines()
@@ -172,7 +246,13 @@ inline lines_loop(cmd)
 
         lda test_byte
         cmd()
-        finish_frame()
+
+        lda test_lines
+        and #7
+        if (zero)
+        {
+            finish_frame()
+        }
 
         ldx test_lines
     } while (not zero)
@@ -201,9 +281,6 @@ function clear_vram()
 
 function init_vram()
 {
-    // reset latch
-    lda PPU.STATUS
-
     init_palette()
     init_attrs()
     init_names()
@@ -343,6 +420,4 @@ function init_names()
     } while (not zero)
 
 }
-
-/******************************************************************************/
 

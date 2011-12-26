@@ -1,6 +1,54 @@
 // top level update commands
 
-// Y:X = line address (8x block addres + line offset)
+// cmd_byte[0 to 7] = bits to OR with
+// Y:X = 8x block idx
+function or_block()
+{
+    stx cmd_addr+0
+    tya
+    sta tmp_byte
+    ora cur_nametable_page
+    sta cmd_addr+1
+
+    txa
+    lsr tmp_byte
+    ror A
+    lsr tmp_byte
+    ror A
+    lsr tmp_byte
+    ror A
+    tax
+    ldy tmp_byte
+
+    add_prim()
+
+    if (zero) {
+        // tile is clean
+
+        if (carry) {
+            // no previous prim, set is ok
+            cmd_tile_set()
+        } else {
+            // need to update
+            cmd_or_tile_update()
+        }
+    }
+    else
+    {
+        // tile is dirty
+
+        if (carry) {
+            // no previous prim, set is ok
+            cmd_tile_set()
+        } else {
+            // need to copy
+            cmd_or_tile_copy()
+        }
+    }
+}
+
+// A = bits to OR with
+// Y:X = line address (8x block idx + line offset)
 function or_line()
 {
     sta cmd_byte
@@ -74,7 +122,55 @@ function or_line()
     }
 }
 
-// Y:X = line address (8x block addres + line offset)
+// cmd_byte[0 to 7] = bits to AND with
+// Y:X = line address 8x block idx
+function and_block()
+{
+    stx cmd_addr+0
+    tya
+    sta tmp_byte
+    ora cur_nametable_page
+    sta cmd_addr+1
+
+    txa
+    lsr tmp_byte
+    ror A
+    lsr tmp_byte
+    ror A
+    lsr tmp_byte
+    ror A
+    tax
+    ldy tmp_byte
+
+    remove_prim()
+
+    if (zero) {
+        // tile is clean
+
+        if (carry) {
+            // no remaining prim, clear is ok
+            cmd_tile_clear()
+        } else {
+            // need to update
+            cmd_and_tile_update()
+        }
+    }
+    else
+    {
+        // tile is dirty
+
+        if (carry) {
+            // no remaining prim, clear is ok
+            cmd_tile_clear()
+        } else {
+            // need to copy
+            cmd_and_tile_copy()
+        }
+    }
+}
+
+// A = bits to AND with
+// Y:X = line address (8x block idx + line offset)
 function and_line()
 {
     sta cmd_byte
