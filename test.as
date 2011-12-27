@@ -114,6 +114,58 @@ interrupt.start noreturn main()
     lda #0
     sta test_angle
 
+        lda #1
+        tax
+        clc
+        adc #$55
+        tay
+
+        lda sintab, X
+        sta test_x0
+        lda sintab+$100, X
+        sta test_y0
+        lda sintab, Y
+        sta test_x1
+        lda sintab+$100, Y
+        sta test_y1
+        bresenham_set()
+
+        lda #1
+        clc
+        adc #$55
+        tax
+        clc
+        adc #$55
+        tay
+
+        lda sintab, X
+        sta test_x0
+        lda sintab+$100, X
+        sta test_y0
+        lda sintab, Y
+        sta test_x1
+        lda sintab+$100, Y
+        sta test_y1
+        bresenham_set()
+
+        lda #1
+        clc
+        adc #$aa
+        tax
+        clc
+        adc #$55
+        tay
+
+        lda sintab, X
+        sta test_x0
+        lda sintab+$100, X
+        sta test_y0
+        lda sintab, Y
+        sta test_x1
+        lda sintab+$100, Y
+        sta test_y1
+        bresenham_set()
+
     forever {
         lda test_angle
         tax
@@ -260,7 +312,7 @@ interrupt.start noreturn main()
 
         lda test_angle
         clc
-        adc #$2
+        adc #$6
         sta test_angle
     }
 }
