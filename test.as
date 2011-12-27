@@ -106,27 +106,11 @@ interrupt.start noreturn main()
     //ppu_ctl1_assign(#CR_BACKVISIBLE|CR_SPRITESVISIBLE|CR_BACKNOCLIP|CR_SPRNOCLIP)
     ppu_ctl1_assign(#CR_BACKVISIBLE)
 
-    // should do random pixels here
+    bresenham_VPX_test()
+    finish_frame()
 
     forever {
 /*
-        lda #$0f
-        or_lines()
-        finish_frame()
-
-        lda #$f0
-        or_lines()
-        finish_frame()
-
-        lda #$f0
-        and_lines()
-        finish_frame()
-
-        lda #$0f
-        and_lines()
-        finish_frame()
-*/
-
         lda #$0f
         or_blocks()
         finish_frame()
@@ -142,20 +126,7 @@ interrupt.start noreturn main()
         lda #$0f
         and_lines()
         finish_frame()
-/*
-        lda #$0f
-        or_lines()
-        lda #$f0
-        or_lines()
-        finish_frame()
-
-        lda #$f0
-        and_lines()
-        lda #$0f
-        and_lines()
-        finish_frame()
 */
-
     }
 }
 
@@ -256,6 +227,170 @@ inline lines_loop(cmd)
 
         ldx test_lines
     } while (not zero)
+}
+
+word test_right_adjust_rom[2] = {-( (8*2*11) - 8), (8*2)}
+
+// vertical, positive X
+function bresenham_VPX_test()
+{
+#define DX 100
+#define DY 168
+    lda #lo( (2*DX)-DY )
+    sta test_err+0
+    lda #hi( (2*DX)-DY )
+    sta test_err+1
+
+    lda #lo(2*DX)
+    sta test_err_strt+0
+    lda #hi(2*DX)
+    sta test_err_strt+1
+
+    lda #lo( (2*DX) - (2*DY) )
+    sta test_err_diag+0
+    lda #hi( (2*DX) - (2*DY) )
+    sta test_err_diag+1
+
+    // how many lines down to go
+    lda #DY
+    sta test_lines
+
+    // y coordinate
+    lda #0
+    sta test_y
+    sta test_x_block
+
+    // index of the block we're writing to
+    lda #0
+    sta test_block+0
+    sta test_block+1
+
+    // pixel position
+    lda #$80
+    sta test_byte
+
+    // TODO: proper pixel positioning, clearing beginning of first block
+
+    forever {
+        lda test_y
+        tay
+        iny
+        sty test_y
+
+        // plot!
+        and #7
+        tax
+        lda test_byte
+        sta cmd_byte, X
+
+        // check if we're done with this block vertically
+        tya
+        and #7
+        if (zero)
+        {
+            // yes, send it
+            ldx test_block+0
+            ldy test_block+1
+
+            or_block()
+
+            // move to next block down
+            clc
+            lda test_block+0
+            adc #(12*8*2)
+            sta test_block+0
+            lda test_block+1
+            adc #0
+            sta test_block+1
+        }
+
+        // check if we're done with this line
+        dec test_lines
+        // TODO: need to clear out and send the rest of the block
+        beq blt_done
+
+        // decision: go right?
+        ldx #0
+        bit test_err+1
+        if (not minus)
+        {
+
+            // go right
+            lsr test_byte
+            if (carry)
+            {
+                // wrap pixel around
+                ror test_byte
+
+                // check if this isn't a new block
+                lda test_y
+                and #7
+                if (not zero)
+                {
+                    // we had already written to the current block
+
+                    // clean out the rest of it
+                    tay
+                    lda #0
+                    do {
+                        sta cmd_byte, Y
+                        iny
+                        cpy #8
+                    } while (not equal)
+
+                    // send it
+                    ldx test_block+0
+                    ldy test_block+1
+
+                    or_block()
+
+                    // now clean out our part
+                    lda test_y
+                    and #7
+                    tax
+                    lda #0
+                    do {
+                        sta cmd_byte-1, X
+                        dex
+                    } while (not zero)
+                }
+
+                // move to next block right
+                inc test_x_block
+                lda test_x_block
+                sec
+                sbc #12
+                tax
+
+                if (not equal)
+                {
+                    // straightforward adjust (8*2)
+                    ldx #2
+                }
+                
+                clc
+                lda test_block+0
+                adc test_right_adjust_rom+0, X
+                sta test_block+0
+                lda test_block+1
+                adc test_right_adjust_rom+1, X
+                sta test_block+1
+            }
+
+            ldx #2
+        }
+
+        // adjust error
+        clc
+        lda test_err+0
+        adc test_err_strt+0, X
+        sta test_err+0
+        lda test_err+1
+        adc test_err_strt+1, X
+        sta test_err+1
+    }
+
+blt_done:
 }
 
 /******************************************************************************/

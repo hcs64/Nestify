@@ -48,6 +48,17 @@ byte cmd_cycles
 byte flip_nametable[0x20]
 #ram.end
 
+#ram.org 0x50, 0x10
+byte test_byte
+byte test_lines
+byte test_y
+byte test_x_block
+word test_err
+word test_err_strt
+word test_err_diag
+word test_block
+#ram.end
+
 #ram.org 0xD1, 0x2f
 byte zp_writer[7]   //      stx $2006 ; sty $2006 ; lda #
 byte zp_immed_0[5]  // NN ; sta $2007 ; lda #
@@ -61,17 +72,13 @@ byte zp_immed_7[5]  // NN ; sta $2007 ; rts
 
 #ram.end
 
-#ram.org 0x200, 0x200
+#ram.org 0x200, 0x1F8
 
 #define DIRTY_FRAME_0   0x80
 #define DIRTY_FRAME_1   0x40
 #define COUNT_MASK      0x1F
 
 byte tile_status[TILES_WIDE*TILES_HIGH]
-
-byte test_byte
-byte test_lines
-
 #ram.end
 
 #ram.org 0x400, 0x400
