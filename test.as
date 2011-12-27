@@ -558,6 +558,10 @@ inline bresenham_down_fcn() {
     // move down a line
     inc test_y0
     inc test_block+0
+    if (zero)
+    {
+        inc test_block+1
+    }
 
     // check if we're done with this block vertically
     lda test_y0
@@ -578,8 +582,14 @@ inline bresenham_up_fcn() {
     lda test_y0
 
     // move up a line
-    dec test_block+0
     dec test_y0
+    ldx test_block+0
+    if (zero)
+    {
+        dec test_block+1
+    }
+    dex
+    stx test_block+0
 
     // check if we're done with this block vertically
     and #7
