@@ -49,9 +49,13 @@ byte flip_nametable[0x20]
 #ram.end
 
 #ram.org 0x50, 0x10
+byte test_x0
+byte test_y0
+byte test_x1
+byte test_y1
+
 byte test_byte
-byte test_lines
-byte test_y
+byte test_iters
 byte test_x_block
 word test_err
 word test_err_strt

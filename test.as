@@ -106,7 +106,46 @@ interrupt.start noreturn main()
     //ppu_ctl1_assign(#CR_BACKVISIBLE|CR_SPRITESVISIBLE|CR_BACKNOCLIP|CR_SPRNOCLIP)
     ppu_ctl1_assign(#CR_BACKVISIBLE)
 
+    lda #60
+    sta test_x0
+    lda #0
+    sta test_y0
+    lda #67
+    sta test_x1
+    lda #167
+    sta test_y1
     bresenham_VPX_test()
+
+    lda #160
+    sta test_x0
+    lda #10
+    sta test_y0
+    lda #167
+    sta test_x1
+    lda #167
+    sta test_y1
+    bresenham_VPX_test()
+
+    lda #140
+    sta test_x0
+    lda #82
+    sta test_y0
+    lda #167
+    sta test_x1
+    lda #167
+    sta test_y1
+    bresenham_VPX_test()
+
+    lda #4
+    sta test_x0
+    lda #4
+    sta test_y0
+    lda #167
+    sta test_x1
+    lda #167
+    sta test_y1
+    bresenham_VPX_test()
+
     finish_frame()
 
     forever {
@@ -151,7 +190,7 @@ inline block_loop(cmd)
     ldx #32
     do {
         dex
-        stx test_lines
+        stx test_iters
 
         txa
         sta tmp_byte
@@ -171,7 +210,7 @@ inline block_loop(cmd)
         cmd()
 
 /*
-        lda test_lines
+        lda test_iters
         and #7
         if (zero)
         {
@@ -179,7 +218,7 @@ inline block_loop(cmd)
         }
         */
 
-        ldx test_lines
+        ldx test_iters
     } while (not zero)
 }
 
@@ -199,7 +238,7 @@ inline lines_loop(cmd)
     ldx #254
     do {
         dex
-        stx test_lines
+        stx test_iters
 
         txa
         and #~7
@@ -218,64 +257,138 @@ inline lines_loop(cmd)
         lda test_byte
         cmd()
 
-        lda test_lines
+        lda test_iters
         and #7
         if (zero)
         {
             finish_frame()
         }
 
-        ldx test_lines
+        ldx test_iters
     } while (not zero)
 }
 
 word test_right_adjust_rom[2] = {-( (8*2*11) - 8), (8*2)}
+byte pixel_pos_rom[8] = {$80,$40,$20,$10,$08,$04,$02,$01}
 
-// vertical, positive X
-function bresenham_VPX_test()
+// mainly vertical, positive DX
+function noreturn bresenham_VPX_test()
 {
-#define DX 100
-#define DY 168
-    lda #lo( (2*DX)-DY )
+    lda #0
+    sta test_err_strt+1
+    sta test_block+1
+    sta tmp_byte
+
+    // compute 2*DX (error adjustment when going straight)
+    sec
+    lda test_x1
+    sbc test_x0
+    asl A
+    sta test_err_strt+0
+    rol test_err_strt+1
+
+    // compute DY (number of rows)
+    sec
+    lda test_y1
+    sbc test_y0
+    sta test_iters
+
+    // compute 2*DX-DY (initial error)
+    sec
+    lda test_err_strt+0
+    sbc test_iters
     sta test_err+0
-    lda #hi( (2*DX)-DY )
+    lda test_err_strt+1
+    sbc #0
     sta test_err+1
 
-    lda #lo(2*DX)
-    sta test_err_strt+0
-    lda #hi(2*DX)
-    sta test_err_strt+1
-
-    lda #lo( (2*DX) - (2*DY) )
+    // compute 2*DX-2*DY (error adjustment when going right)
+    sec
+    lda test_err+0
+    sbc test_iters
     sta test_err_diag+0
-    lda #hi( (2*DX) - (2*DY) )
+    lda test_err+1
+    sbc #0
     sta test_err_diag+1
 
-    // how many lines down to go
-    lda #DY
-    sta test_lines
-
-    // y coordinate
-    lda #0
-    sta test_y
+    // x coordinate in blocks
+    lda test_x0
+    lsr A
+    lsr A
+    lsr A
     sta test_x_block
 
-    // index of the block we're writing to
-    lda #0
+    // calculate first block index
+    lda test_x0
+    and #~7
+    cmp #(12*8)
+    if (not minus)
+    {
+        sec
+        sbc #( (12*8) - (8/2) )
+    }
+    asl A
     sta test_block+0
+    rol test_block+1
+
+    // y/8*8*2*12
+    lda test_y0
+    and #~7
+    asl A
+    rol tmp_byte
+    asl A
+    rol tmp_byte
+    asl A
+    rol tmp_byte
+    tax
+
+    // +8y
+    clc
+    adc test_block+0
+    sta test_block+0
+    lda tmp_byte
+    adc test_block+1
+    sta test_block+1
+
+    txa
+    asl A
+    rol tmp_byte
+
+    // +16y
+    clc
+    adc test_block+0
+    sta test_block+0
+    lda tmp_byte
+    adc test_block+1
     sta test_block+1
 
     // pixel position
-    lda #$80
+    lda test_x0
+    and #7
+    tax
+    lda pixel_pos_rom, X
     sta test_byte
 
-    // TODO: proper pixel positioning, clearing beginning of first block
+    // clear beginning of the block
+    lda test_y0
+    and #7
+    tax
+    lda #0
+    dex
+    if (not minus)
+    {
+        do {
+            sta cmd_byte, X
+            dex
+        } while (not minus)
+    }
 
+    // do them lines
     forever {
-        lda test_y
+        lda test_y0
         tay
         iny
-        sty test_y
+        sty test_y0
 
         // plot!
         and #7
@@ -302,14 +415,38 @@ function bresenham_VPX_test()
             lda test_block+1
             adc #0
             sta test_block+1
+
+            dec test_iters
+            if (equal) {
+                rts
+            }
+        }
+        else
+        {
+            dec test_iters
+            if (equal) {
+                // send the last block
+
+                // clean out the rest of it
+                tay
+                lda #0
+                do {
+                    sta cmd_byte, Y
+                    iny
+                    cpy #8
+                } while (not equal)
+
+                // send it
+                ldx test_block+0
+                ldy test_block+1
+
+                or_block()
+
+                rts
+            }
         }
 
-        // check if we're done with this line
-        dec test_lines
-        // TODO: need to clear out and send the rest of the block
-        beq blt_done
-
-        // decision: go right?
+        // go right as well?
         ldx #0
         bit test_err+1
         if (not minus)
@@ -323,11 +460,11 @@ function bresenham_VPX_test()
                 ror test_byte
 
                 // check if this isn't a new block
-                lda test_y
+                lda test_y0
                 and #7
                 if (not zero)
                 {
-                    // we had already written to the current block
+                    // we had previously written to the current block
 
                     // clean out the rest of it
                     tay
@@ -345,7 +482,7 @@ function bresenham_VPX_test()
                     or_block()
 
                     // now clean out our part
-                    lda test_y
+                    lda test_y0
                     and #7
                     tax
                     lda #0
@@ -389,8 +526,6 @@ function bresenham_VPX_test()
         adc test_err_strt+1, X
         sta test_err+1
     }
-
-blt_done:
 }
 
 /******************************************************************************/
