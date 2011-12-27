@@ -22,6 +22,9 @@
 #interrupt.irq      int_irq
 #interrupt.nmi      int_nmi
 
+#align 256
+sintab:
+#incbin "sintab.bin"
 interrupt.irq int_irq()
 {
 }
@@ -108,212 +111,357 @@ interrupt.start noreturn main()
 
     // test begins
 
-    lda #4
-    sta test_x0
-    lda #50
-    sta test_y0
-    lda #160
-    sta test_x1
-    lda #4
-    sta test_y1
-    bresenham_HNY_set()
-
-    lda #160
-    sta test_x0
-    lda #4
-    sta test_y0
-    lda #20
-    sta test_x1
-    lda #144
-    sta test_y1
-    bresenham_VNX_set()
+    lda #0
+    sta test_angle
 
     forever {
-        // 1
-        lda #4
-        sta test_x0
-        lda #4
-        sta test_y0
-        lda #160
-        sta test_x1
-        lda #10
-        sta test_y1
-        bresenham_HPY_set()
+        lda test_angle
+        tax
+        clc
+        adc #$40
+        tay
 
-        // 2
-        lda #160
+        lda sintab, X
         sta test_x0
-        lda #10
+        lda sintab+$100, X
         sta test_y0
-        lda #167
+        lda sintab, Y
         sta test_x1
-        lda #167
+        lda sintab+$100, Y
         sta test_y1
-        bresenham_VPX_set()
+        bresenham_set()
 
-        // 3
-        lda #4
+        lda test_angle
+        clc
+        adc #$40
+        tax
+        clc
+        adc #$40
+        tay
+
+        lda sintab, X
         sta test_x0
-        lda #4
+        lda sintab+$100, X
         sta test_y0
-        lda #167
+        lda sintab, Y
         sta test_x1
-        lda #167
+        lda sintab+$100, Y
         sta test_y1
-        bresenham_VPX_set()
+        bresenham_set()
+
+        lda test_angle
+        clc
+        adc #$80
+        tax
+        clc
+        adc #$40
+        tay
+
+        lda sintab, X
+        sta test_x0
+        lda sintab+$100, X
+        sta test_y0
+        lda sintab, Y
+        sta test_x1
+        lda sintab+$100, Y
+        sta test_y1
+        bresenham_set()
+
+        lda test_angle
+        clc
+        adc #$C0
+        tax
+        clc
+        adc #$40
+        tay
+
+        lda sintab, X
+        sta test_x0
+        lda sintab+$100, X
+        sta test_y0
+        lda sintab, Y
+        sta test_x1
+        lda sintab+$100, Y
+        sta test_y1
+        bresenham_set()
 
         finish_frame()
 
-        // 1
-        lda #4
-        sta test_x0
-        lda #4
-        sta test_y0
-        lda #160
-        sta test_x1
-        lda #10
-        sta test_y1
-        bresenham_HPY_clr()
+        // clear
+        lda test_angle
+        tax
+        clc
+        adc #$40
+        tay
 
-        // 2
-        lda #160
+        lda sintab, X
         sta test_x0
-        lda #10
+        lda sintab+$100, X
         sta test_y0
-        lda #167
+        lda sintab, Y
         sta test_x1
-        lda #167
+        lda sintab+$100, Y
         sta test_y1
-        bresenham_VPX_clr()
+        bresenham_clr()
 
-        // 3
-        lda #4
+        lda test_angle
+        clc
+        adc #$40
+        tax
+        clc
+        adc #$40
+        tay
+
+        lda sintab, X
         sta test_x0
-        lda #4
+        lda sintab+$100, X
         sta test_y0
-        lda #167
+        lda sintab, Y
         sta test_x1
-        lda #167
+        lda sintab+$100, Y
         sta test_y1
-        bresenham_VPX_clr()
+        bresenham_clr()
 
-        finish_frame()
+        lda test_angle
+        clc
+        adc #$80
+        tax
+        clc
+        adc #$40
+        tay
+
+        lda sintab, X
+        sta test_x0
+        lda sintab+$100, X
+        sta test_y0
+        lda sintab, Y
+        sta test_x1
+        lda sintab+$100, Y
+        sta test_y1
+        bresenham_clr()
+
+        lda test_angle
+        clc
+        adc #$C0
+        tax
+        clc
+        adc #$40
+        tay
+
+        lda sintab, X
+        sta test_x0
+        lda sintab+$100, X
+        sta test_y0
+        lda sintab, Y
+        sta test_x1
+        lda sintab+$100, Y
+        sta test_y1
+        bresenham_clr()
+
+        lda test_angle
+        clc
+        adc #$2
+        sta test_angle
     }
 }
 
 word test_right_adjust_rom[2] = {-( (8*2*11) - 8), (8*2)}
 byte pixel_pos_rom[8] = {$80,$40,$20,$10,$08,$04,$02,$01}
 
-function bresenham_HNY_set()
+function bresenham_set()
 {
-    bresenham_HNY_setup()
-    bresenham_HNY(or_line)
+    bresenham_setup()
+
+    txa
+    if (minus)
+    {
+        tya
+        if (zero)
+        {
+            bresenham_HPY_set()
+        }
+        else
+        {
+            bresenham_HNY_set()
+        }
+        rts
+    }
+    else
+    {
+        txa
+        if (zero)
+        {
+            bresenham_VPX_set()
+        }
+        else
+        {
+            bresenham_VNX_set()
+        }
+    }
 }
 
-function bresenham_HNY_clr()
+function bresenham_clr()
 {
-    bresenham_HNY_setup()
-    bresenham_HNY(clr_line)
-}
+    bresenham_setup()
 
-function bresenham_VNX_set()
-{
-    bresenham_VNX_setup()
-    bresenham_VNX(or_block)
-}
-
-function bresenham_VNX_clr()
-{
-    bresenham_VNX_setup()
-    bresenham_VNX(clr_block)
-}
-
-function bresenham_HPY_set()
-{
-    bresenham_HPY_setup()
-    bresenham_HPY(or_line)
-}
-
-function bresenham_HPY_clr()
-{
-    bresenham_HPY_setup()
-    bresenham_HPY(clr_line)
+    txa
+    if (minus)
+    {
+        tya
+        if (zero)
+        {
+            bresenham_HPY_clr()
+        }
+        else
+        {
+            bresenham_HNY_clr()
+        }
+        rts
+    }
+    else
+    {
+        txa
+        if (zero)
+        {
+            bresenham_VPX_clr()
+        }
+        else
+        {
+            bresenham_VNX_clr()
+        }
+    }
 }
 
 function bresenham_VPX_set()
 {
-    bresenham_VPX_setup()
     bresenham_VPX(or_block)
 }
-
 function bresenham_VPX_clr()
 {
-    bresenham_VPX_setup()
     bresenham_VPX(clr_block)
 }
-
-function bresenham_HNY_setup()
+function bresenham_VNX_set()
 {
-    bresenham_pos_setup(test_x0, test_x1, test_y1, test_y0)
-    bresenham_common_setup()
-
-    lda test_y0
-    and #7
-    clc
-    adc test_block+0
-    sta test_block+0
-    //lda test_block+1
-    //adc #0
-    //sta test_block+1
+    bresenham_VNX(or_block)
+}
+function bresenham_VNX_clr()
+{
+    bresenham_VNX(clr_block)
+}
+function bresenham_HPY_set()
+{
+    bresenham_HPY(or_line)
+}
+function bresenham_HPY_clr()
+{
+    bresenham_HPY(clr_line)
+}
+function bresenham_HNY_set()
+{
+    bresenham_HNY(or_line)
+}
+function bresenham_HNY_clr()
+{
+    bresenham_HNY(clr_line)
 }
 
-function bresenham_VNX_setup()
+function bresenham_setup()
 {
-    bresenham_pos_setup(test_y0, test_y1, test_x1, test_x0)
-    bresenham_common_setup()
-}
+    ldy #0
+    ldx #0
 
-function bresenham_HPY_setup()
-{
-    bresenham_pos_setup(test_x0, test_x1, test_y0, test_y1)
-    bresenham_common_setup()
+    stx test_err_strt+1
 
-    lda test_y0
-    and #7
-    clc
-    adc test_block+0
-    sta test_block+0
-    //lda test_block+1
-    //adc #0
-    //sta test_block+1
-}
-
-function bresenham_VPX_setup()
-{
-    bresenham_pos_setup(test_y0, test_y1, test_x0, test_x1)
-    bresenham_common_setup()
-}
-
-inline bresenham_pos_setup(major0, major1, minor0, minor1)
-{
-    lda #0
-    sta test_err_strt+1
-    sta test_block+1
+    sec
+    lda test_x1
+    sbc test_x0
+    if (not carry) {
+        eor #$ff
+        clc
+        adc #1
+        inx
+    }
     sta tmp_byte
 
-    // compute 2*DMin (error adjustment when going straight)
     sec
-    lda minor1
-    sbc minor0
-    asl A
-    sta test_err_strt+0
-    rol test_err_strt+1
+    lda test_y1
+    sbc test_y0
+    if (not carry) {
+        eor #$ff
+        clc
+        adc #1
+        iny
+    }
 
-    // compute DMaj (number of iterations)
-    sec
-    lda major1
-    sbc major0
-    sta test_iters
+    cmp tmp_byte
+    if (not carry)
+    {
+        // Y minor
+        // compute 2*DMin (error adjustment when going straight)
+        asl A
+        sta test_err_strt+0
+        rol test_err_strt+1
+
+        // X major
+        // compute DMaj (number of iterations)
+        lda tmp_byte
+        sta test_iters
+
+        // always inc along the major axis
+        txa
+        if (not zero)
+        {
+            ldx test_x0
+            lda test_x1
+            sta test_x0
+            stx test_x1
+
+            ldx test_y0
+            lda test_y1
+            sta test_y0
+            stx test_y1
+
+            tya
+            eor #1
+            tay
+        }
+
+        ldx #$80
+    }
+    else
+    {
+        // Y major
+        // compute DMaj (number of iterations)
+        sta test_iters
+
+        // X minor
+        // compute 2*DMin (error adjustment when going straight)
+        lda tmp_byte
+        asl A
+        sta test_err_strt+0
+        rol test_err_strt+1
+
+        // always inc along the major axis
+        tya
+        if (not zero)
+        {
+            ldy test_x0
+            lda test_x1
+            sta test_x0
+            sty test_x1
+
+            ldy test_y0
+            lda test_y1
+            sta test_y0
+            sty test_y1
+
+            txa
+            eor #1
+            tax
+        }
+
+        ldy #$80
+    }
 
     // compute 2*DMin-DMaj (initial error)
     sec
@@ -336,6 +484,10 @@ inline bresenham_pos_setup(major0, major1, minor0, minor1)
 
 function bresenham_common_setup()
 {
+    lda #0
+    sta tmp_byte
+    sta test_block+1
+
     // x coordinate in blocks
     lda test_x0
     lsr A
@@ -445,6 +597,17 @@ inline bresenham_up_fcn() {
 }
 
 inline bresenham_H_common(cmd_fcn, updown_fcn) {
+    bresenham_common_setup()
+
+    lda test_y0
+    and #7
+    clc
+    adc test_block+0
+    sta test_block+0
+    //lda test_block+1
+    //adc #0
+    //sta test_block+1
+
     // start with an empty buffer
     lda #0
     sta cmd_byte
@@ -611,6 +774,7 @@ inline bresenham_left_fcn() {
 }
 
 inline bresenham_V_common(cmd_fcn, rightleft_fcn, shift_op, rot_op) {
+    bresenham_common_setup()
 
     // clear beginning of the block
     lda test_y0
