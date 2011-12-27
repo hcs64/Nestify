@@ -108,37 +108,28 @@ interrupt.start noreturn main()
 
     // test begins
 
-    lda #60
-    sta test_x0
-    lda #0
-    sta test_y0
-    lda #67
-    sta test_x1
-    lda #167
-    sta test_y1
-    bresenham_VPX_set()
-
-    lda #97
-    sta test_x0
     lda #4
-    sta test_y0
-    lda #120
-    sta test_x1
-    lda #4
-    sta test_y1
-    bresenham_HPY_set()
-
-    lda #120
     sta test_x0
-    lda #4
+    lda #50
     sta test_y0
     lda #160
     sta test_x1
-    lda #10
+    lda #4
     sta test_y1
-    bresenham_HPY_set()
+    bresenham_HNY_set()
+
+    lda #160
+    sta test_x0
+    lda #4
+    sta test_y0
+    lda #20
+    sta test_x1
+    lda #144
+    sta test_y1
+    bresenham_VNX_set()
 
     forever {
+        // 1
         lda #4
         sta test_x0
         lda #4
@@ -149,6 +140,7 @@ interrupt.start noreturn main()
         sta test_y1
         bresenham_HPY_set()
 
+        // 2
         lda #160
         sta test_x0
         lda #10
@@ -159,16 +151,7 @@ interrupt.start noreturn main()
         sta test_y1
         bresenham_VPX_set()
 
-        lda #140
-        sta test_x0
-        lda #82
-        sta test_y0
-        lda #167
-        sta test_x1
-        lda #167
-        sta test_y1
-        bresenham_VPX_set()
-
+        // 3
         lda #4
         sta test_x0
         lda #4
@@ -181,6 +164,7 @@ interrupt.start noreturn main()
 
         finish_frame()
 
+        // 1
         lda #4
         sta test_x0
         lda #4
@@ -191,6 +175,7 @@ interrupt.start noreturn main()
         sta test_y1
         bresenham_HPY_clr()
 
+        // 2
         lda #160
         sta test_x0
         lda #10
@@ -201,16 +186,7 @@ interrupt.start noreturn main()
         sta test_y1
         bresenham_VPX_clr()
 
-        lda #140
-        sta test_x0
-        lda #82
-        sta test_y0
-        lda #167
-        sta test_x1
-        lda #167
-        sta test_y1
-        bresenham_VPX_clr()
-
+        // 3
         lda #4
         sta test_x0
         lda #4
@@ -227,6 +203,30 @@ interrupt.start noreturn main()
 
 word test_right_adjust_rom[2] = {-( (8*2*11) - 8), (8*2)}
 byte pixel_pos_rom[8] = {$80,$40,$20,$10,$08,$04,$02,$01}
+
+function bresenham_HNY_set()
+{
+    bresenham_HNY_setup()
+    bresenham_HNY(or_line)
+}
+
+function bresenham_HNY_clr()
+{
+    bresenham_HNY_setup()
+    bresenham_HNY(clr_line)
+}
+
+function bresenham_VNX_set()
+{
+    bresenham_VNX_setup()
+    bresenham_VNX(or_block)
+}
+
+function bresenham_VNX_clr()
+{
+    bresenham_VNX_setup()
+    bresenham_VNX(clr_block)
+}
 
 function bresenham_HPY_set()
 {
@@ -250,6 +250,27 @@ function bresenham_VPX_clr()
 {
     bresenham_VPX_setup()
     bresenham_VPX(clr_block)
+}
+
+function bresenham_HNY_setup()
+{
+    bresenham_pos_setup(test_x0, test_x1, test_y1, test_y0)
+    bresenham_common_setup()
+
+    lda test_y0
+    and #7
+    clc
+    adc test_block+0
+    sta test_block+0
+    //lda test_block+1
+    //adc #0
+    //sta test_block+1
+}
+
+function bresenham_VNX_setup()
+{
+    bresenham_pos_setup(test_y0, test_y1, test_x1, test_x0)
+    bresenham_common_setup()
 }
 
 function bresenham_HPY_setup()
@@ -373,7 +394,57 @@ function bresenham_common_setup()
     sta test_byte
 }
 
+inline bresenham_HNY(cmd_fcn) {
+    bresenham_H_common(cmd_fcn, bresenham_up_fcn)
+}
+
 inline bresenham_HPY(cmd_fcn) {
+    bresenham_H_common(cmd_fcn, bresenham_down_fcn)
+}
+
+inline bresenham_down_fcn() {
+    // move down a line
+    inc test_y0
+    inc test_block+0
+
+    // check if we're done with this block vertically
+    lda test_y0
+    and #7
+    if (zero)
+    {
+        // move to next block down, undo the test_block inc above
+        clc
+        lda test_block+0
+        adc #( (12*8*2) - 8)
+        sta test_block+0
+        lda test_block+1
+        adc #0
+        sta test_block+1
+    }
+}
+inline bresenham_up_fcn() {
+    lda test_y0
+
+    // move up a line
+    dec test_block+0
+    dec test_y0
+
+    // check if we're done with this block vertically
+    and #7
+    if (zero)
+    {
+        // move to next block up, undo the test_block dec above
+        sec
+        lda test_block+0
+        sbc #( (12*8*2) - 8)
+        sta test_block+0
+        lda test_block+1
+        sbc #0
+        sta test_block+1
+    }
+}
+
+inline bresenham_H_common(cmd_fcn, updown_fcn) {
     // start with an empty buffer
     lda #0
     sta cmd_byte
@@ -447,7 +518,7 @@ inline bresenham_HPY(cmd_fcn) {
             }
         }
 
-        // go down as well?
+        // go up/down as well?
         ldx #0
         bit test_err+1
         if (not minus)
@@ -469,24 +540,7 @@ inline bresenham_HPY(cmd_fcn) {
                 sta cmd_byte
             }
 
-            // move down a line
-            inc test_y0
-            inc test_block+0
-
-            // check if we're done with this block vertically
-            lda test_y0
-            and #7
-            if (zero)
-            {
-                // move to next block down, undo the test_block inc above
-                clc
-                lda test_block+0
-                adc #( (12*8*2) - 8)
-                sta test_block+0
-                lda test_block+1
-                adc #0
-                sta test_block+1
-            }
+            updown_fcn()
 
             ldx #2
         }
@@ -502,7 +556,61 @@ inline bresenham_HPY(cmd_fcn) {
     }
 }
 
+inline bresenham_VNX(cmd_fcn) {
+    bresenham_V_common(cmd_fcn, bresenham_left_fcn, asl, rol)
+}
+
 inline bresenham_VPX(cmd_fcn) {
+    bresenham_V_common(cmd_fcn, bresenham_right_fcn, lsr, ror)
+}
+
+inline bresenham_right_fcn() {
+    // move to next block right
+    inc test_x_block
+    lda test_x_block
+    sec
+    sbc #12
+    tax
+
+    if (not equal)
+    {
+        // straightforward adjust (8*2)
+        ldx #2
+    }
+    
+    clc
+    lda test_block+0
+    adc test_right_adjust_rom+0, X
+    sta test_block+0
+    lda test_block+1
+    adc test_right_adjust_rom+1, X
+    sta test_block+1
+}
+
+inline bresenham_left_fcn() {
+    // move to next block left
+    dec test_x_block
+    lda test_x_block
+    sec
+    sbc #11
+    tax
+
+    if (not equal)
+    {
+        // straightforward adjust (8*2)
+        ldx #2
+    }
+    
+    sec
+    lda test_block+0
+    sbc test_right_adjust_rom+0, X
+    sta test_block+0
+    lda test_block+1
+    sbc test_right_adjust_rom+1, X
+    sta test_block+1
+}
+
+inline bresenham_V_common(cmd_fcn, rightleft_fcn, shift_op, rot_op) {
 
     // clear beginning of the block
     lda test_y0
@@ -582,18 +690,17 @@ inline bresenham_VPX(cmd_fcn) {
             }
         }
 
-        // go right as well?
+        // go left/right as well?
         ldx #0
         bit test_err+1
         if (not minus)
         {
-
             // go right
-            lsr test_byte
+            shift_op test_byte
             if (carry)
             {
                 // wrap pixel around
-                ror test_byte
+                rot_op test_byte
 
                 // check if this isn't a new block
                 lda test_y0
@@ -628,26 +735,7 @@ inline bresenham_VPX(cmd_fcn) {
                     } while (not zero)
                 }
 
-                // move to next block right
-                inc test_x_block
-                lda test_x_block
-                sec
-                sbc #12
-                tax
-
-                if (not equal)
-                {
-                    // straightforward adjust (8*2)
-                    ldx #2
-                }
-                
-                clc
-                lda test_block+0
-                adc test_right_adjust_rom+0, X
-                sta test_block+0
-                lda test_block+1
-                adc test_right_adjust_rom+1, X
-                sta test_block+1
+                rightleft_fcn()
             }
 
             ldx #2
