@@ -481,8 +481,10 @@ function cmd_and_one_byte()
     ldx cmd_addr+1
     add_inst_2()
 
+    lda cmd_byte
+    eor #$FF
+    tax
     lda #$A9        // lda imm: 2 cycles, 2 bytes
-    ldx cmd_byte
     add_inst_2()
 
     lda #$20        // jsr: 6 + 34 cycles, 3 bytes
@@ -552,8 +554,10 @@ inline cmd_and_2007_sta(src, dst)
     ldy #$20
     add_inst_3()
 
+    lda (src)
+    eor #$FF
+    tax
     lda #$29    // and imm: 2 cycles, 2 bytes
-    ldx (src)
     add_inst_2()
 
     lda #$85    // sta zp: 3 cycles, 2 bytes

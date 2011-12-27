@@ -122,9 +122,9 @@ function or_line()
     }
 }
 
-// cmd_byte[0 to 7] = bits to AND with
+// cmd_byte[0 to 7] = bits to clear
 // Y:X = line address 8x block idx
-function and_block()
+function clr_block()
 {
     stx cmd_addr+0
     tya
@@ -169,9 +169,9 @@ function and_block()
     }
 }
 
-// A = bits to AND with
+// A = bits to clear
 // Y:X = line address (8x block idx + line offset)
-function and_line()
+function clr_line()
 {
     sta cmd_byte
     stx cmd_addr+0
@@ -216,7 +216,7 @@ function and_line()
         sta tmp_byte
 
         lda cmd_byte
-        ldx #0xFF
+        ldx #0
 
         ldy #7
         do {

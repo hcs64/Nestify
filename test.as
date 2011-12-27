@@ -106,6 +106,8 @@ interrupt.start noreturn main()
     //ppu_ctl1_assign(#CR_BACKVISIBLE|CR_SPRITESVISIBLE|CR_BACKNOCLIP|CR_SPRNOCLIP)
     ppu_ctl1_assign(#CR_BACKVISIBLE)
 
+    // test begins
+
     lda #60
     sta test_x0
     lda #0
@@ -114,165 +116,93 @@ interrupt.start noreturn main()
     sta test_x1
     lda #167
     sta test_y1
-    bresenham_VPX_test()
-
-    lda #160
-    sta test_x0
-    lda #10
-    sta test_y0
-    lda #167
-    sta test_x1
-    lda #167
-    sta test_y1
-    bresenham_VPX_test()
-
-    lda #140
-    sta test_x0
-    lda #82
-    sta test_y0
-    lda #167
-    sta test_x1
-    lda #167
-    sta test_y1
-    bresenham_VPX_test()
-
-    lda #4
-    sta test_x0
-    lda #4
-    sta test_y0
-    lda #167
-    sta test_x1
-    lda #167
-    sta test_y1
-    bresenham_VPX_test()
-
-    finish_frame()
+    bresenham_VPX_set()
 
     forever {
-/*
-        lda #$0f
-        or_blocks()
+
+        lda #160
+        sta test_x0
+        lda #10
+        sta test_y0
+        lda #167
+        sta test_x1
+        lda #167
+        sta test_y1
+        bresenham_VPX_set()
+
+        lda #140
+        sta test_x0
+        lda #82
+        sta test_y0
+        lda #167
+        sta test_x1
+        lda #167
+        sta test_y1
+        bresenham_VPX_set()
+
+        lda #4
+        sta test_x0
+        lda #4
+        sta test_y0
+        lda #167
+        sta test_x1
+        lda #167
+        sta test_y1
+        bresenham_VPX_set()
+
         finish_frame()
 
-        lda #$f0
-        or_lines()
-        finish_frame()
+        lda #160
+        sta test_x0
+        lda #10
+        sta test_y0
+        lda #167
+        sta test_x1
+        lda #167
+        sta test_y1
+        bresenham_VPX_clr()
 
-        lda #$f0
-        and_blocks()
-        finish_frame()
+        lda #140
+        sta test_x0
+        lda #82
+        sta test_y0
+        lda #167
+        sta test_x1
+        lda #167
+        sta test_y1
+        bresenham_VPX_clr()
 
-        lda #$0f
-        and_lines()
+        lda #4
+        sta test_x0
+        lda #4
+        sta test_y0
+        lda #167
+        sta test_x1
+        lda #167
+        sta test_y1
+        bresenham_VPX_clr()
+
         finish_frame()
-*/
     }
-}
-
-function and_blocks()
-{
-    block_loop(and_block)
-}
-
-function or_blocks()
-{
-    block_loop(or_block)
-}
-
-inline block_loop(cmd)
-{
-    ldx #8
-    do {
-        dex
-        sta cmd_byte, X
-    } while (not zero)
-
-    ldx #32
-    do {
-        dex
-        stx test_iters
-
-        txa
-        sta tmp_byte
-
-        lda #0
-        asl tmp_byte
-        rol A
-        asl tmp_byte
-        rol A
-        asl tmp_byte
-        rol A
-        asl tmp_byte
-        rol A
-        tay
-
-        ldx tmp_byte
-        cmd()
-
-/*
-        lda test_iters
-        and #7
-        if (zero)
-        {
-            finish_frame()
-        }
-        */
-
-        ldx test_iters
-    } while (not zero)
-}
-
-function and_lines()
-{
-    lines_loop(and_line)
-}
-
-function or_lines()
-{
-    lines_loop(or_line)
-}
-
-inline lines_loop(cmd)
-{
-    sta test_byte
-    ldx #254
-    do {
-        dex
-        stx test_iters
-
-        txa
-        and #~7
-        asl A
-        sta tmp_byte
-
-        lda #0
-        rol A
-        tay
-
-        txa
-        and #7
-        adc tmp_byte // c cleared by rol
-        tax
-
-        lda test_byte
-        cmd()
-
-        lda test_iters
-        and #7
-        if (zero)
-        {
-            finish_frame()
-        }
-
-        ldx test_iters
-    } while (not zero)
 }
 
 word test_right_adjust_rom[2] = {-( (8*2*11) - 8), (8*2)}
 byte pixel_pos_rom[8] = {$80,$40,$20,$10,$08,$04,$02,$01}
 
+function bresenham_VPX_set()
+{
+    bresenham_VPX_setup()
+    bresenham_VPX(or_block)
+}
+
+function bresenham_VPX_clr()
+{
+    bresenham_VPX_setup()
+    bresenham_VPX(clr_block)
+}
+
 // mainly vertical, positive DX
-function noreturn bresenham_VPX_test()
+function bresenham_VPX_setup()
 {
     lda #0
     sta test_err_strt+1
@@ -334,6 +264,8 @@ function noreturn bresenham_VPX_test()
     // y/8*8*2*12
     lda test_y0
     and #~7
+
+    // +8y
     asl A
     rol tmp_byte
     asl A
@@ -341,8 +273,6 @@ function noreturn bresenham_VPX_test()
     asl A
     rol tmp_byte
     tax
-
-    // +8y
     clc
     adc test_block+0
     sta test_block+0
@@ -350,11 +280,10 @@ function noreturn bresenham_VPX_test()
     adc test_block+1
     sta test_block+1
 
+    // +16y
     txa
     asl A
     rol tmp_byte
-
-    // +16y
     clc
     adc test_block+0
     sta test_block+0
@@ -368,6 +297,10 @@ function noreturn bresenham_VPX_test()
     tax
     lda pixel_pos_rom, X
     sta test_byte
+
+}
+
+inline bresenham_VPX(cmd_fcn) {
 
     // clear beginning of the block
     lda test_y0
@@ -405,7 +338,7 @@ function noreturn bresenham_VPX_test()
             ldx test_block+0
             ldy test_block+1
 
-            or_block()
+            cmd_fcn()
 
             // move to next block down
             clc
@@ -440,7 +373,7 @@ function noreturn bresenham_VPX_test()
                 ldx test_block+0
                 ldy test_block+1
 
-                or_block()
+                cmd_fcn()
 
                 rts
             }
@@ -479,7 +412,7 @@ function noreturn bresenham_VPX_test()
                     ldx test_block+0
                     ldy test_block+1
 
-                    or_block()
+                    cmd_fcn()
 
                     // now clean out our part
                     lda test_y0
@@ -566,7 +499,7 @@ function init_palette()
 
     // palette 0
     ldx #0x0F   // bg
-    ldy #0x1A   // fg
+    ldy #0x20   // fg
     stx PPU.IO  // 00: bg
     sty PPU.IO  // 01: fg
     stx PPU.IO  // 10: bg
