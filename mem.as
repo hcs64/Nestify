@@ -40,6 +40,9 @@ byte cmd_byte[8]
 byte cmd_size
 byte cmd_cycles
 
+// debug FPS reporting
+shared byte frame_counter
+byte last_frame_time
 #ram.end
 
 #ram.org 0x30, 0x20

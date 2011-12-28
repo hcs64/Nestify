@@ -25,6 +25,13 @@
 #align 256
 sintab:
 #incbin "sintab.bin"
+
+digits:
+#incbin "digits.bin"
+
+digitmap:
+#incbin "digitmap.bin"
+
 interrupt.irq int_irq()
 {
 }
@@ -41,7 +48,39 @@ interrupt.nmi int_nmi()
 
     process_dlists()
 
+    vram_set_address_i( (NAME_TABLE_0_ADDRESS + (25*32) + 4 + 8) )
+
+    // a little frames per frame display
+        lda last_frame_time
+
+        tay
+        lda digitmap, Y
+        vram_write_a()
+
+        tya
+        asl A
+        asl A
+        tay
+        lda digitmap, Y
+        vram_write_a()
+
+        tya
+        asl A
+        asl A
+        tay
+        lda digitmap, Y
+        vram_write_a()
+
+        tya
+        asl A
+        asl A
+        tay
+        lda digitmap, Y
+        vram_write_a()
+
     vram_clear_address()
+
+    inc frame_counter
 
     pla
     tay
@@ -65,6 +104,8 @@ inline system_initialize_custom()
     sta  _ppu_ctl0
     sta  _ppu_ctl1
     sta  _joypad0
+
+    sta frame_counter
 
     sta  PPU.BG_SCROLL
     sta  PPU.BG_SCROLL
@@ -142,9 +183,9 @@ interrupt.start noreturn main()
         sta test_x0
         lda sintab+$100, X
         sta test_y0
-        lda sintab, Y
+        lda #0 //sintab, Y
         sta test_x1
-        lda sintab+$100, Y
+        lda #0 //sintab+$100, Y
         sta test_y1
         bresenham_set()
 
@@ -156,9 +197,9 @@ interrupt.start noreturn main()
         adc #$55
         tay
 
-        lda sintab, X
+        lda #0 //sintab, X
         sta test_x0
-        lda sintab+$100, X
+        lda #0 //sintab+$100, X
         sta test_y0
         lda sintab, Y
         sta test_x1
@@ -167,6 +208,7 @@ interrupt.start noreturn main()
         bresenham_set()
 
     forever {
+        /*
         lda test_angle
         tax
         clc
@@ -182,6 +224,7 @@ interrupt.start noreturn main()
         lda sintab+$100, Y
         sta test_y1
         bresenham_set()
+        */
 
         lda test_angle
         clc
@@ -201,6 +244,7 @@ interrupt.start noreturn main()
         sta test_y1
         bresenham_set()
 
+        /*
         lda test_angle
         clc
         adc #$80
@@ -218,6 +262,7 @@ interrupt.start noreturn main()
         lda sintab+$100, Y
         sta test_y1
         bresenham_set()
+        */
 
         lda test_angle
         clc
@@ -240,6 +285,7 @@ interrupt.start noreturn main()
         finish_frame()
 
         // clear
+        /*
         lda test_angle
         tax
         clc
@@ -255,6 +301,7 @@ interrupt.start noreturn main()
         lda sintab+$100, Y
         sta test_y1
         bresenham_clr()
+        */
 
         lda test_angle
         clc
@@ -274,6 +321,7 @@ interrupt.start noreturn main()
         sta test_y1
         bresenham_clr()
 
+        /*
         lda test_angle
         clc
         adc #$80
@@ -291,6 +339,7 @@ interrupt.start noreturn main()
         lda sintab+$100, Y
         sta test_y1
         bresenham_clr()
+        */
 
         lda test_angle
         clc
@@ -1007,6 +1056,7 @@ function init_vram()
     init_palette()
     init_attrs()
     init_names()
+    init_patterns()
 }
 
 function init_palette()
@@ -1046,9 +1096,21 @@ function init_attrs()
     lda #lo(ATTRIBUTE_TABLE_0_ADDRESS)
     sta PPU.ADDRESS
 
-    ldx #7
+    // top rows, use palette 1, with the invisible bit 0
+    lda #%01010101
+    ldx #8
     do {
-        ldy #4
+        sta PPU.IO
+        dex
+    } while (not zero)
+
+    ldx #5
+    do {
+        // left margin, invisible bit 0
+        lda #%01010101
+        sta PPU.IO
+
+        ldy #3
         lda #0
         do {
             sta PPU.IO
@@ -1061,6 +1123,24 @@ function init_attrs()
             sta PPU.IO
             dey
         } while (not zero)
+        dex
+    } while (not zero)
+
+    // bottom strip
+    ldy #%01010101
+    sty PPU.IO
+
+    // partially visible, for the status
+    lda #%01010000
+    ldx #3
+    do {
+        sta PPU.IO
+        dex
+    } while (not zero)
+
+    ldx #(4+8)
+    do {
+        sty PPU.IO
         dex
     } while (not zero)
 }
@@ -1076,7 +1156,7 @@ function init_names()
 
     // top margin
     ldx #4
-    lda #0xFF
+    lda #0xFC
     do {
         ldy #32
         do {
@@ -1089,7 +1169,7 @@ function init_names()
     ldx #21
     lda #0
     sta tmp_byte2
-    lda #0xFF
+    lda #0xFC
     do {
         stx tmp_byte
 
@@ -1132,7 +1212,6 @@ function init_names()
 
     // bottom margin
     ldx #5
-    lda #0xFF
     do {
         ldy #32
         do {
@@ -1142,5 +1221,50 @@ function init_names()
         dex
     } while (not zero)
 
+
 }
 
+/******************************************************************************/
+
+function init_patterns()
+{
+    // fixed patterns
+    assign_16i(tmp_addr, digits)
+    vram_set_address_i( (TILES_WIDE * TILES_HIGH * 8 ) )
+    ldx #4
+    unpack_patterns()
+
+    assign_16i(tmp_addr, digits)
+    vram_set_address_i( ( (TILES_WIDE * TILES_HIGH * 8) + 0x1000 ) )
+    ldx #4
+    unpack_patterns()
+}
+
+function unpack_patterns()
+{
+    do {
+        ldy #0
+        do {
+            vram_write_ind_y(tmp_addr)
+            iny
+            cpy #8
+        } while (not equal)
+
+        ldy #8
+        lda #0
+        do {
+            vram_write_a()
+            dey
+        } while (not zero)
+
+        clc
+        lda #8
+        adc tmp_addr+0
+        sta tmp_addr+0
+        lda #0
+        adc tmp_addr+1
+        sta tmp_addr+1
+
+        dex
+    } while (not equal)
+}

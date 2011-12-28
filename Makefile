@@ -5,19 +5,26 @@ sendchr.as \
 tiles.as \
 lines.as
 
+PREGEN = \
+sintab.bin \
+digitmap.bin
+
 IMAGES = \
-sintab.bin
+digits.bin
 
 EXE = test.nes
 
-$(EXE): $(SOURCES) $(IMAGES)
+$(EXE): $(SOURCES) $(IMAGES) $(PREGEN)
 	neshla test.as
 
-tell: $(SOURCES) $(IMAGES)
+tell: $(SOURCES) $(IMAGES) $(PREGEN)
 	neshla test.as -tell
 
 sintab.bin: sintab.py
 	./sintab.py
 
+digitmap.bin: digitmap.py
+	./digitmap.py
+
 clean:
-	rm -f test.nes $(IMAGES) log.txt sintab.bin
+	rm -f test.nes $(PREGEN) log.txt sintab.bin digitmap.bin
