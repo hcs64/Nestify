@@ -18,6 +18,9 @@
 #include "sendchr.as"
 #include "lines.as"
 
+#define HOLD_DELAY 12
+#define REPEAT_DELAY 3
+
 #interrupt.start    main
 #interrupt.irq      int_irq
 #interrupt.nmi      int_nmi
@@ -82,6 +85,49 @@ interrupt.nmi int_nmi()
 
     inc frame_counter
 
+    // update controller once per frame
+    reset_joystick()
+    ldx #8
+    do {
+        lda JOYSTICK.CNT0
+        lsr A
+        if (carry)
+        {
+            php
+
+            ldy hold_count_joypad0-1, X
+            iny
+            cpy #HOLD_DELAY
+            if (not equal)
+            {
+                sty hold_count_joypad0-1, X
+            }
+            if (equal)
+            {
+                inc repeat_count_joypad0-1, X
+                if (equal)
+                {
+                    // saturate at 255
+                    dec repeat_count_joypad0-1, X
+                }
+            }
+
+            plp
+        }
+        if (not carry)
+        {
+            lda #0
+            sta hold_count_joypad0-1, X
+            sta repeat_count_joypad0-1, X
+        }
+        rol _joypad0
+        dex
+    } while (not zero)
+
+    lda _joypad0_acc
+    ora _joypad0
+    sta _joypad0_acc
+
     pla
     tay
     pla
@@ -104,6 +150,7 @@ inline system_initialize_custom()
     sta  _ppu_ctl0
     sta  _ppu_ctl1
     sta  _joypad0
+    sta  _joypad0_acc
 
     sta frame_counter
 
@@ -152,219 +199,238 @@ interrupt.start noreturn main()
 
     // test begins
 
-    lda #0
+    lda #$23
     sta test_angle
+    lda #$6
+    sta test_speed
 
-        lda #1
-        tax
-        clc
-        adc #$55
-        tay
+    draw_triangle()
 
-        lda sintab, X
-        sta test_x0
-        lda sintab+$100, X
-        sta test_y0
-        lda sintab, Y
-        sta test_x1
-        lda sintab+$100, Y
-        sta test_y1
-        bresenham_set()
-
-        lda #1
-        clc
-        adc #$55
-        tax
-        clc
-        adc #$55
-        tay
-
-        lda sintab, X
-        sta test_x0
-        lda sintab+$100, X
-        sta test_y0
-        lda #0 //sintab, Y
-        sta test_x1
-        lda #0 //sintab+$100, Y
-        sta test_y1
-        bresenham_set()
-
-        lda #1
-        clc
-        adc #$aa
-        tax
-        clc
-        adc #$55
-        tay
-
-        lda #0 //sintab, X
-        sta test_x0
-        lda #0 //sintab+$100, X
-        sta test_y0
-        lda sintab, Y
-        sta test_x1
-        lda sintab+$100, Y
-        sta test_y1
-        bresenham_set()
 
     forever {
-        /*
-        lda test_angle
-        tax
-        clc
-        adc #$40
-        tay
-
-        lda sintab, X
-        sta test_x0
-        lda sintab+$100, X
-        sta test_y0
-        lda sintab, Y
-        sta test_x1
-        lda sintab+$100, Y
-        sta test_y1
-        bresenham_set()
-        */
-
-        lda test_angle
-        clc
-        adc #$40
-        tax
-        clc
-        adc #$40
-        tay
-
-        lda sintab, X
-        sta test_x0
-        lda sintab+$100, X
-        sta test_y0
-        lda sintab, Y
-        sta test_x1
-        lda sintab+$100, Y
-        sta test_y1
-        bresenham_set()
-
-        /*
-        lda test_angle
-        clc
-        adc #$80
-        tax
-        clc
-        adc #$40
-        tay
-
-        lda sintab, X
-        sta test_x0
-        lda sintab+$100, X
-        sta test_y0
-        lda sintab, Y
-        sta test_x1
-        lda sintab+$100, Y
-        sta test_y1
-        bresenham_set()
-        */
-
-        lda test_angle
-        clc
-        adc #$C0
-        tax
-        clc
-        adc #$40
-        tay
-
-        lda sintab, X
-        sta test_x0
-        lda sintab+$100, X
-        sta test_y0
-        lda sintab, Y
-        sta test_x1
-        lda sintab+$100, Y
-        sta test_y1
-        bresenham_set()
+        draw_square()
 
         finish_frame()
 
-        // clear
-        /*
-        lda test_angle
+        clear_square()
+
+        // turn, turn, turn
+        lda _joypad0_acc
         tax
-        clc
-        adc #$40
-        tay
+        eor last_joypad0
+        stx last_joypad0
+        and _joypad0_acc
+        sta new_joypad0
 
-        lda sintab, X
-        sta test_x0
-        lda sintab+$100, X
-        sta test_y0
-        lda sintab, Y
-        sta test_x1
-        lda sintab+$100, Y
-        sta test_y1
-        bresenham_clr()
-        */
+        lda #0
+        sta _joypad0_acc
 
-        lda test_angle
-        clc
-        adc #$40
-        tax
-        clc
-        adc #$40
-        tay
+        lda new_joypad0
+        and #BUTTON_SELECT
 
-        lda sintab, X
-        sta test_x0
-        lda sintab+$100, X
-        sta test_y0
-        lda sintab, Y
-        sta test_x1
-        lda sintab+$100, Y
-        sta test_y1
-        bresenham_clr()
+        if (not zero)
+        {
+            clear_triangle()
+            draw_triangle()
+        }
 
-        /*
-        lda test_angle
-        clc
-        adc #$80
-        tax
-        clc
-        adc #$40
-        tay
+        ldx #0
+        process_button(BUTTON_UP, repeat_count_joypad0.UP, -6)
+        process_button(BUTTON_DOWN, repeat_count_joypad0.DOWN, 6)
+        process_button(BUTTON_LEFT, repeat_count_joypad0.LEFT, -1)
+        process_button(BUTTON_RIGHT, repeat_count_joypad0.RIGHT, 1)
 
-        lda sintab, X
-        sta test_x0
-        lda sintab+$100, X
-        sta test_y0
-        lda sintab, Y
-        sta test_x1
-        lda sintab+$100, Y
-        sta test_y1
-        bresenham_clr()
-        */
+        lda new_joypad0
+        and #BUTTON_START
 
-        lda test_angle
-        clc
-        adc #$C0
-        tax
-        clc
-        adc #$40
-        tay
+        if (not zero)
+        {
+            lda test_speed
+            if (zero)
+            {
+                lda #$6
+            }
+            else
+            {
+                lda #$0
+            }
+            sta test_speed
+        }
 
-        lda sintab, X
-        sta test_x0
-        lda sintab+$100, X
-        sta test_y0
-        lda sintab, Y
-        sta test_x1
-        lda sintab+$100, Y
-        sta test_y1
-        bresenham_clr()
+        lda test_speed
+        if (not zero)
+        {
+            tax
+        }
 
-        lda test_angle
+        txa
         clc
-        adc #$6
+        adc test_angle
         sta test_angle
     }
 }
+
+inline process_button(button_mask, button_repeat_count, delta)
+{
+    lda new_joypad0
+    and #button_mask
+    bne do_X_button
+
+    lda button_repeat_count
+    cmp #REPEAT_DELAY
+    bmi skip_X_button
+
+do_X_button:
+    ldx #delta
+    lda #0
+    sta button_repeat_count
+
+skip_X_button:
+}
+
+function clear_triangle() {
+    do_triangle(bresenham_clr)
+}
+function draw_triangle() {
+    do_triangle(bresenham_set)
+}
+function clear_square() {
+    do_square(bresenham_clr)
+}
+function draw_square() {
+    do_square(bresenham_set)
+}
+
+inline do_triangle(cmd_fcn)
+{
+    lda #1
+    tax
+    clc
+    adc #$55
+    tay
+
+    lda sintab, X
+    sta test_x0
+    lda sintab+$100, X
+    sta test_y0
+    lda sintab, Y
+    sta test_x1
+    lda sintab+$100, Y
+    sta test_y1
+    cmd_fcn()
+
+    lda #1
+    clc
+    adc #$55
+    tax
+    clc
+    adc #$55
+    tay
+
+    lda sintab, X
+    sta test_x0
+    lda sintab+$100, X
+    sta test_y0
+    lda sintab, Y
+    sta test_x1
+    lda sintab+$100, Y
+    sta test_y1
+    cmd_fcn()
+
+    lda #1
+    clc
+    adc #$aa
+    tax
+    clc
+    lda #1
+    //adc #$55
+    tay
+
+    lda sintab, X
+    sta test_x0
+    lda sintab+$100, X
+    sta test_y0
+    lda sintab, Y
+    sta test_x1
+    lda sintab+$100, Y
+    sta test_y1
+    cmd_fcn()
+}
+
+inline do_square(cmd_fcn)
+{
+    lda test_angle
+    tax
+    clc
+    adc #$40
+    tay
+
+    lda sintab, X
+    sta test_x0
+    lda sintab+$100, X
+    sta test_y0
+    lda sintab, Y
+    sta test_x1
+    lda sintab+$100, Y
+    sta test_y1
+    cmd_fcn()
+
+    lda test_angle
+    clc
+    adc #$40
+    tax
+    clc
+    adc #$40
+    tay
+
+    lda sintab, X
+    sta test_x0
+    lda sintab+$100, X
+    sta test_y0
+    lda sintab, Y
+    sta test_x1
+    lda sintab+$100, Y
+    sta test_y1
+    cmd_fcn()
+
+    lda test_angle
+    clc
+    adc #$80
+    tax
+    clc
+    adc #$40
+    tay
+
+    lda sintab, X
+    sta test_x0
+    lda sintab+$100, X
+    sta test_y0
+    lda sintab, Y
+    sta test_x1
+    lda sintab+$100, Y
+    sta test_y1
+    cmd_fcn()
+
+    lda test_angle
+    clc
+    adc #$C0
+    tax
+    clc
+    adc #$40
+    tay
+
+    lda sintab, X
+    sta test_x0
+    lda sintab+$100, X
+    sta test_y0
+    lda sintab, Y
+    sta test_x1
+    lda sintab+$100, Y
+    sta test_y1
+    cmd_fcn()
+}
+
+/******************************************************************************/
 
 word test_right_adjust_rom[2] = {-( (8*2*11) - 8), (8*2)}
 byte pixel_pos_rom[8] = {$80,$40,$20,$10,$08,$04,$02,$01}

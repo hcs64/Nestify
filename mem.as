@@ -1,7 +1,7 @@
 #define TILES_WIDE 24
 #define TILES_HIGH 21
 
-#ram.org 0x0, 0x30
+#ram.org 0x0, 0x40
 
 pointer tmp_addr
 byte    tmp_byte
@@ -13,6 +13,20 @@ shared byte _ppu_ctl0, _ppu_ctl1
 
 // only set by NMI after init
 shared byte _joypad0
+
+struct hold_count_joypad0
+{
+    byte RIGHT, LEFT, DOWN, UP, START, SELECT, A, B
+}
+struct repeat_count_joypad0
+{
+    byte RIGHT, LEFT, DOWN, UP, START, SELECT, A, B
+}
+
+// main thread input tracking
+shared byte _joypad0_acc
+byte last_joypad0
+byte new_joypad0
 
 // tile status bits
 byte this_frame_mask
@@ -45,14 +59,16 @@ shared byte frame_counter
 byte last_frame_time
 #ram.end
 
-#ram.org 0x30, 0x20
+#ram.org 0x40, 0x20
 // if we need space this can be put out of zero page with no extra cycle cost as
 // long as it doesn't cross a page boundary
 byte flip_nametable[0x20]
 #ram.end
 
-#ram.org 0x50, 0x10
+#ram.org 0x60, 0x11
 byte test_angle
+byte test_speed
+
 byte test_x0
 byte test_y0
 byte test_x1
