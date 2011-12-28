@@ -532,6 +532,9 @@ function bresenham_setup()
     lda test_err+1
     sbc #0
     sta test_err_diag+1
+
+    // always cover the last pixel
+    inc test_iters
 }
 
 function bresenham_common_setup()
