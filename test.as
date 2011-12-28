@@ -155,6 +155,9 @@ inline system_initialize_custom()
     sta  _joypad0_acc
 
     sta frame_counter
+    sta last_frame_time
+    sta wasted_nmis
+    sta total_dlists
 
     sta  PPU.BG_SCROLL
     sta  PPU.BG_SCROLL
@@ -165,6 +168,14 @@ inline system_initialize_custom()
 
     lda  #0xC0
     sta  joystick.cnt1
+
+    // clear stats
+    lda #0
+    ldx #0x20
+    do {
+        sta 0x40, X
+        dex
+    } while (not zero)
 
     // wait for PPU to turn on
     bit PPU.STATUS
@@ -201,7 +212,8 @@ interrupt.start noreturn main()
 
     // test begins
 
-    lda #$23
+    //lda #$23
+    lda #$e0
     sta test_angle
     lda #$6
     sta test_speed
@@ -269,6 +281,10 @@ interrupt.start noreturn main()
         clc
         adc test_angle
         sta test_angle
+        if (carry)
+        {
+            //forever {}
+        }
     }
 }
 
@@ -519,19 +535,19 @@ function bresenham_VNX_clr()
 }
 function bresenham_HPY_set()
 {
-    bresenham_HPY(or_line)
+    //bresenham_HPY(or_block)
 }
 function bresenham_HPY_clr()
 {
-    bresenham_HPY(clr_line)
+    //bresenham_HPY(clr_block)
 }
 function bresenham_HNY_set()
 {
-    bresenham_HNY(or_line)
+    //bresenham_HNY(or_block)
 }
 function bresenham_HNY_clr()
 {
-    bresenham_HNY(clr_line)
+    //bresenham_HNY(clr_block)
 }
 
 function bresenham_setup()

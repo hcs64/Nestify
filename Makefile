@@ -6,7 +6,8 @@ tiles.as \
 lines.as
 
 PREGEN = \
-sintab.bin
+sintab.bin \
+rangetab.bin
 
 IMAGES =
 
@@ -20,6 +21,9 @@ tell: $(SOURCES) $(IMAGES) $(PREGEN)
 
 sintab.bin: sintab.py
 	./sintab.py
+
+rangetab.bin: rangetab.py
+	./rangetab.py
 
 clean:
 	rm -f test.nes $(PREGEN) log.txt

@@ -43,29 +43,58 @@ word dlist_start
 word dlist_next_byte
 
 #define MAX_DLISTS 4
-#define MAX_DLISTS_MOD_MASK 6
+#define MAX_DLISTS_MOD_MASK %110
 
 word dlists[MAX_DLISTS]
 byte dlist_read_idx
 byte dlist_write_idx
 
 word cmd_addr
+byte cmd_start
+byte cmd_lines
+byte cmd_op
 byte cmd_byte[8]
-byte cmd_size
-byte cmd_cycles
 
-// debug FPS reporting
-shared byte frame_counter
-byte last_frame_time
+// only check_for_space_and_cycles() uses these
+byte cmd_size
+byte cmd_cycles // reused for operation line range
 #ram.end
 
 #ram.org 0x40, 0x20
+// 0x40
+shared byte frame_counter
+// 0x41
+byte last_frame_time
+// 0x42
+byte wasted_nmis
+word stuck_cnt
+// 0x43
+byte total_dlists
+// 0x44
+word clr_one_byte_cnt
+word and_one_byte_cnt
+// 0x48
+word tile_clear_cnt
+word and_tile_copy_cnt
+// 0x4C
+word and_tile_update_cnt
+word or_tile_copy_cnt
+// 0x50
+word tile_set_cnt
+word or_one_byte_cnt
+// 0x54
+word set_one_byte_cnt
+word or_tile_update_cnt
+// 0x58
+#ram.end
+
+#ram.org 0x60, 0x20
 // if we need space this can be put out of zero page with no extra cycle cost as
 // long as it doesn't cross a page boundary
 byte flip_nametable[0x20]
 #ram.end
 
-#ram.org 0x60, 0x11
+#ram.org 0x80, 0x11
 byte test_angle
 byte test_speed
 
