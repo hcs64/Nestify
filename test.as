@@ -29,12 +29,6 @@
 sintab:
 #incbin "sintab.bin"
 
-digits:
-#incbin "digits.bin"
-
-digitmap:
-#incbin "digitmap.bin"
-
 interrupt.irq int_irq()
 {
 }
@@ -51,39 +45,47 @@ interrupt.nmi int_nmi()
 
     process_dlists()
 
-    vram_set_address_i( (NAME_TABLE_0_ADDRESS + (25*32) + 4 + 8) )
+    vram_set_address_i( (NAME_TABLE_0_ADDRESS + (25*32) + 4) )
 
-    // a little frames per frame display
-        lda last_frame_time
+    // a little perf bar
+    ldx last_frame_time
+    sec
+    lda #24
+    sbc last_frame_time
+    tay
+    if (not carry)
+    {
+        ldx #24
+        ldy #0
+    }
 
-        tay
-        lda digitmap, Y
-        vram_write_a()
+    dex
+    bmi done_fill
+fill_loop:
+    lda #0xFD
+    dex
+    bpl still_fill
+    lda #0xFC
+still_fill:
+    sta $2007
+    dex
+    bpl fill_loop
 
-        tya
-        asl A
-        asl A
-        tay
-        lda digitmap, Y
-        vram_write_a()
+done_fill:
+    lda #0xFF
+    dey
+    bmi perf_bar_done
+empty_loop:
+    sta $2007
+    dey
+    bpl empty_loop
+perf_bar_done:
 
-        tya
-        asl A
-        asl A
-        tay
-        lda digitmap, Y
-        vram_write_a()
-
-        tya
-        asl A
-        asl A
-        tay
-        lda digitmap, Y
-        vram_write_a()
-
-    vram_clear_address()
-
+    //
     inc frame_counter
+
+    // done with PPU stuff
+    vram_clear_address()
 
     // update controller once per frame
     reset_joystick()
@@ -1162,21 +1164,9 @@ function init_attrs()
     lda #lo(ATTRIBUTE_TABLE_0_ADDRESS)
     sta PPU.ADDRESS
 
-    // top rows, use palette 1, with the invisible bit 0
-    lda #%01010101
-    ldx #8
+    ldx #7
     do {
-        sta PPU.IO
-        dex
-    } while (not zero)
-
-    ldx #5
-    do {
-        // left margin, invisible bit 0
-        lda #%01010101
-        sta PPU.IO
-
-        ldy #3
+        ldy #4
         lda #0
         do {
             sta PPU.IO
@@ -1189,24 +1179,6 @@ function init_attrs()
             sta PPU.IO
             dey
         } while (not zero)
-        dex
-    } while (not zero)
-
-    // bottom strip
-    ldy #%01010101
-    sty PPU.IO
-
-    // partially visible, for the status
-    lda #%01010000
-    ldx #3
-    do {
-        sta PPU.IO
-        dex
-    } while (not zero)
-
-    ldx #(4+8)
-    do {
-        sty PPU.IO
         dex
     } while (not zero)
 }
@@ -1222,7 +1194,7 @@ function init_names()
 
     // top margin
     ldx #4
-    lda #0xFC
+    lda #0xFF
     do {
         ldy #32
         do {
@@ -1235,7 +1207,7 @@ function init_names()
     ldx #21
     lda #0
     sta tmp_byte2
-    lda #0xFC
+    lda #0xFF
     do {
         stx tmp_byte
 
@@ -1287,22 +1259,33 @@ function init_names()
         dex
     } while (not zero)
 
+    // perf bar scale
+    vram_set_address_i( (NAME_TABLE_0_ADDRESS + (26*32) + 4) )
+    ldy #12
+    lda #0xFC
+    do {
+        vram_write_a()
+        dey
+    } while (not zero)
 
 }
 
 /******************************************************************************/
 
+byte half_on_block[8] = {$F0,$F0,$F0,$F0,$F0,$F0,$F0,$F0}
+byte on_block[8] = {$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF}
+
 function init_patterns()
 {
     // fixed patterns
-    assign_16i(tmp_addr, digits)
+    assign_16i(tmp_addr, half_on_block)
     vram_set_address_i( (TILES_WIDE * TILES_HIGH * 8 ) )
-    ldx #4
+    ldx #2
     unpack_patterns()
 
-    assign_16i(tmp_addr, digits)
+    assign_16i(tmp_addr, half_on_block)
     vram_set_address_i( ( (TILES_WIDE * TILES_HIGH * 8) + 0x1000 ) )
-    ldx #4
+    ldx #2
     unpack_patterns()
 }
 

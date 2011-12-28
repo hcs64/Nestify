@@ -6,11 +6,9 @@ tiles.as \
 lines.as
 
 PREGEN = \
-sintab.bin \
-digitmap.bin
+sintab.bin
 
-IMAGES = \
-digits.bin
+IMAGES =
 
 EXE = test.nes
 
@@ -23,8 +21,5 @@ tell: $(SOURCES) $(IMAGES) $(PREGEN)
 sintab.bin: sintab.py
 	./sintab.py
 
-digitmap.bin: digitmap.py
-	./digitmap.py
-
 clean:
-	rm -f test.nes $(PREGEN) log.txt sintab.bin digitmap.bin
+	rm -f test.nes $(PREGEN) log.txt
