@@ -67,25 +67,10 @@ shared byte frame_counter
 byte last_frame_time
 // 0x42
 byte wasted_nmis
-word stuck_cnt
 // 0x43
 byte total_dlists
 // 0x44
-word clr_one_byte_cnt
-word and_one_byte_cnt
-// 0x48
-word tile_clear_cnt
-word and_tile_copy_cnt
-// 0x4C
-word and_tile_update_cnt
-word or_tile_copy_cnt
-// 0x50
-word tile_set_cnt
-word or_one_byte_cnt
-// 0x54
-word set_one_byte_cnt
-word or_tile_update_cnt
-// 0x58
+word stuck_cnt
 #ram.end
 
 #ram.org 0x60, 0x20
@@ -134,7 +119,7 @@ byte zp_immed_7[5]  // NN ; sta $2007 ; rts
 byte tile_status[TILES_WIDE*TILES_HIGH]
 #ram.end
 
-#ram.org 0x400, 0x400
+#ram.org 0x400, 0x383
 
 #define DLIST_SIZE 0x380
 #define DLIST_WORST_CASE_SIZE 0x37C // -4

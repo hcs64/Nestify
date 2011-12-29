@@ -504,8 +504,10 @@ function cmd_X_update_lines()
 
     check_for_space_and_cycles()
 
+    lda cmd_addr+0
+    ora cmd_start
+    tax
     lda #$A0        // ldy imm: 2 cycles, 2 bytes
-    ldx cmd_addr+0
     add_inst_2()
 
     lda #$A2        // ldx imm: 2 cycles, 2 bytes
@@ -614,8 +616,10 @@ function cmd_set_lines()
 
     check_for_space_and_cycles()
 
+    lda cmd_addr+0
+    ora cmd_start
+    tax
     lda #$A0        // ldy imm: 2 cycles, 2 bytes
-    ldx cmd_addr+0
     add_inst_2()
 
     lda #$A2        // ldx imm: 2 cycles, 2 bytes
@@ -674,8 +678,10 @@ function cmd_clr_lines()
 
     check_for_space_and_cycles()
 
+    lda cmd_addr+0
+    ora cmd_start
+    tax
     lda #$A0        // ldy imm: 2 cycles, 2 bytes
-    ldx cmd_addr+0
     add_inst_2()
 
     lda #$A2        // ldx imm: 2 cycles, 2 bytes
@@ -738,10 +744,8 @@ function cmd_X_copy_all_lines()
 
     check_for_space_and_cycles()
 
-    lda cmd_addr+0
-    and #~7
-    tax
     lda #$A0        // ldy imm: 2 cycles, 2 bytes
+    ldx cmd_addr+0
     add_inst_2()
 
     lda #$A2        // ldx imm: 2 cycles, 2 bytes
@@ -829,10 +833,8 @@ function cmd_set_all_lines()
 
     check_for_space_and_cycles()
 
-    lda cmd_addr+0
-    and #~7
-    tax
     lda #$A0        // ldy imm: 2 cycles, 2 bytes
+    ldx cmd_addr+0
     add_inst_2()
 
     lda #$A2        // ldx imm: 2 cycles, 2 bytes

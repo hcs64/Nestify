@@ -20,17 +20,10 @@ function or_block()
     tax
     ldy tmp_byte
 
-    add_prim()
-
     lda #$09 // ora imm
     sta cmd_op
 
-    lda #8
-    sta cmd_lines
-
-    lda cmd_addr+0
-    and #7
-    sta cmd_start
+    add_prim()
 
     if (zero) {
         // tile is clean
@@ -77,17 +70,10 @@ function clr_block()
     tax
     ldy tmp_byte
 
-    remove_prim()
-
     lda #$29 // and imm
     sta cmd_op
 
-    lda #8
-    sta cmd_lines
-
-    lda cmd_addr+0
-    and #7
-    sta cmd_start
+    remove_prim()
 
     if (zero) {
         // tile is clean
