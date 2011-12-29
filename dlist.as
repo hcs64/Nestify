@@ -1,6 +1,6 @@
 // display list stuff
 
-#define MAX_NMI_CYCLES 1900
+#define MAX_NMI_CYCLES 2000
 
 // 62 cycles
 zp_writer_rom:

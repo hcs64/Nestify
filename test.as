@@ -46,6 +46,7 @@ interrupt.nmi int_nmi()
 
     process_dlists()
 
+    /*
     vram_set_address_i( (NAME_TABLE_0_ADDRESS + (25*32) + 4) )
 
     // a little perf bar
@@ -81,6 +82,7 @@ empty_loop:
     dey
     bpl empty_loop
 perf_bar_done:
+    */
 
     //
     inc frame_counter
@@ -665,6 +667,7 @@ function init_names()
         dex
     } while (not zero)
 
+    /*
     // perf bar scale
     vram_set_address_i( (NAME_TABLE_0_ADDRESS + (26*32) + 4) )
     ldy #12
@@ -673,7 +676,7 @@ function init_names()
         vram_write_a()
         dey
     } while (not zero)
-
+    */
 }
 
 /******************************************************************************/
