@@ -280,6 +280,8 @@ interrupt.start noreturn main()
     draw_triangle()
 
     forever {
+        //clear_screen()
+
         draw_square()
 
         finish_frame()

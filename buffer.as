@@ -24,6 +24,33 @@ function init_tracktiles()
     sta other_frame_mask
 }
 
+function clear_screen()
+{
+    ldx #0
+    do {
+        lda tile_status, X
+        bit count_mask_rom
+        if (not zero)
+        {
+            lda #DIRTY_FRAME_0|DIRTY_FRAME_1
+            sta tile_status, X
+        }
+
+        dex
+    } while (not zero)
+
+    ldx #(TILES_WIDE*TILES_HIGH)-0x100
+    do {
+        lda tile_status+0x100-1, X
+        bit count_mask_rom
+        if (not zero) {
+            lda #DIRTY_FRAME_0|DIRTY_FRAME_1
+            sta tile_status+0x100-1, X
+        }
+        dex
+    } while (not zero)
+}
+
 function tracktiles_finish_frame()
 {
     // update any stragglers from last frame
@@ -37,6 +64,8 @@ function tracktiles_finish_frame()
         if (not zero) {
             eor other_frame_mask
             sta tile_status, X
+            and #COUNT_MASK
+            tay
 
             stx cmd_addr+0
             lda #0
@@ -46,10 +75,18 @@ function tracktiles_finish_frame()
             rol A
             asl cmd_addr+0
             rol A
-            adc cur_nametable_page
+            ora cur_nametable_page
             sta cmd_addr+1
 
-            cmd_tile_copy()
+            cpy #0
+            if (zero)
+            {
+                cmd_tile_clear()
+            }
+            else
+            {
+                cmd_tile_copy()
+            }
         }
 
         ldx tmp_byte2
@@ -65,6 +102,8 @@ function tracktiles_finish_frame()
         if (not zero) {
             eor other_frame_mask
             sta tile_status+0x100, X
+            and #COUNT_MASK
+            tay
 
             stx cmd_addr+0
             lda #1
@@ -74,10 +113,18 @@ function tracktiles_finish_frame()
             rol A
             asl cmd_addr+0
             rol A
-            adc cur_nametable_page
+            ora cur_nametable_page
             sta cmd_addr+1
 
-            cmd_tile_copy()
+            cpy #0
+            if (zero)
+            {
+                cmd_tile_clear()
+            }
+            else
+            {
+                cmd_tile_copy()
+            }
         }
 
         ldx tmp_byte2
