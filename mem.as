@@ -71,6 +71,10 @@ byte wasted_nmis
 byte total_dlists
 // 0x44
 word stuck_cnt
+
+byte test_angle
+byte test_speed
+
 #ram.end
 
 #ram.org 0x60, 0x20
@@ -80,21 +84,18 @@ byte flip_nametable[0x20]
 #ram.end
 
 #ram.org 0x80, 0x11
-byte test_angle
-byte test_speed
+byte line_x0
+byte line_y0
+byte line_x1
+byte line_y1
 
-byte test_x0
-byte test_y0
-byte test_x1
-byte test_y1
-
-byte test_byte
-byte test_iters
-byte test_x_block
-word test_err
-word test_err_strt
-word test_err_diag
-word test_block
+byte line_row
+byte line_iters
+byte line_x_block
+word line_block
+word line_err
+word line_err_strt
+word line_err_diag
 #ram.end
 
 #ram.org 0xD1, 0x2f

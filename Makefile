@@ -1,9 +1,10 @@
 SOURCES = \
 mem.as \
 test.as \
-sendchr.as \
-tiles.as \
-lines.as
+dlist.as \
+buffer.as \
+blocks.as \
+vector.as
 
 PREGEN = \
 sintab.bin \

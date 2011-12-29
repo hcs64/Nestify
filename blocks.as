@@ -99,18 +99,3 @@ function clr_block()
         }
     }
 }
-
-function finish_frame()
-{
-    tracktiles_finish_frame()
-    sendchr_finish_frame()
-
-    lda frame_counter
-    sta last_frame_time
-    lda #0
-    sta frame_counter
-
-    lda cur_nametable_page
-    eor #0x10
-    sta cur_nametable_page
-}
