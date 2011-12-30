@@ -130,3 +130,22 @@ byte dlist_0[DLIST_SIZE]
 byte dlist_wrap_jmp[3]
 
 #ram.end
+
+#ram.org 0x790, 0x62
+
+#define NUM_POLYS 4
+#define POLY_WRAP_MASK %110000
+#tell.bankoffset
+typedef struct point_s {
+    byte x, y, vx, vy
+}
+point_s points[4]
+
+typedef struct line_s {
+    byte x0, x1, y0, y1
+}
+line_s lines[4*NUM_POLYS]
+
+byte head_poly, tail_poly
+
+#ram.end

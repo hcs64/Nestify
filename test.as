@@ -215,62 +215,28 @@ interrupt.start noreturn main()
 
     // test begins
 
-    /*
+    forever {
+        mystify_test()
+
+        rotate_test()
+    }
+}
+
+function update_joypad()
+{
+    lda _joypad0_acc
+    tax
+    eor last_joypad0
+    stx last_joypad0
+    and _joypad0_acc
+    sta new_joypad0
+
     lda #0
-    tax
-    clc
-    adc #$55
-    tay
+    sta _joypad0_acc
+}
 
-    lda sintab, X
-    sta line_x0
-    lda sintab+$100, X
-    sta line_y0
-    lda sintab, Y
-    sta line_x1
-    lda sintab+$100, Y
-    sta line_y1
-    bresenham_set()
-
-    lda #$55
-    tax
-    clc
-    adc #$55
-    tay
-
-    lda sintab, X
-    //clc
-    //adc #50
-    sta line_x0
-    lda sintab+$100, X
-    sta line_y0
-    lda sintab, Y
-    sta line_x1
-    lda sintab+$100, Y
-    sta line_y1
-    bresenham_set()
-
-    lda #$aa
-    tax
-    clc
-    adc #$56
-    tay
-
-    lda sintab, X
-    sta line_x0
-    lda sintab+$100, X
-    sta line_y0
-    lda sintab, Y
-    sta line_x1
-    lda sintab+$100, Y
-    sta line_y1
-    bresenham_set()
-
-    finish_frame()
-
-    forever {}
-    */
-
+function rotate_test()
+{
     //lda #$23
     lda #$e0
     sta test_angle
@@ -289,24 +255,11 @@ interrupt.start noreturn main()
         clear_square()
 
         // turn, turn, turn
-        lda _joypad0_acc
-        tax
-        eor last_joypad0
-        stx last_joypad0
-        and _joypad0_acc
-        sta new_joypad0
-
-        lda #0
-        sta _joypad0_acc
+        update_joypad()
 
         lda new_joypad0
         and #BUTTON_SELECT
-
-        if (not zero)
-        {
-            clear_triangle()
-            draw_triangle()
-        }
+        bne rotate_test_done
 
         ldx #0
         process_button(BUTTON_UP, repeat_count_joypad0.UP, -6)
@@ -341,11 +294,51 @@ interrupt.start noreturn main()
         clc
         adc test_angle
         sta test_angle
-        if (carry)
-        {
-            //forever {}
-        }
     }
+
+rotate_test_done:
+
+    clear_triangle()
+}
+
+byte points_rom[] = {10,10,5,2, 160,100,-3,-7, 70,70,-6,10, 100,35,0,-10}
+
+function mystify_test()
+{
+    ldx #15
+    do {
+        lda points_rom, X
+        sta points, X
+        dex
+    } while (not minus)
+
+    lda #0
+    sta head_poly
+    sta tail_poly
+
+    // draw initial polygons
+    draw_poly()
+    draw_poly()
+    draw_poly()
+    draw_poly()
+
+    finish_frame()
+
+    forever {
+        clear_poly()
+        draw_poly()
+        finish_frame()
+
+        update_joypad()
+
+        lda new_joypad0
+        and #BUTTON_SELECT
+        bne mystify_test_done
+    }
+
+mystify_test_done:
+
+    clear_screen()
 }
 
 inline process_button(button_mask, button_repeat_count, delta)
@@ -506,6 +499,160 @@ inline do_square(cmd_fcn)
     lda sintab+$100, Y
     sta line_y1
     cmd_fcn()
+}
+
+function draw_poly()
+{
+    ldx head_poly
+
+    setup_poly_line(0)
+    setup_poly_line(1)
+    setup_poly_line(2)
+    setup_poly_line(3)
+
+    draw_poly_line(0)
+    draw_poly_line(1)
+    draw_poly_line(2)
+    draw_poly_line(3)
+
+    lda head_poly
+    clc
+    adc #sizeof(line_s)*NUM_POLYS
+    and #POLY_WRAP_MASK
+    sta head_poly
+
+    update_poly_point(0)
+    update_poly_point(1)
+    update_poly_point(2)
+    update_poly_point(3)
+}
+
+function clear_poly()
+{
+    clear_poly_line(0)
+    clear_poly_line(1)
+    clear_poly_line(2)
+    clear_poly_line(3)
+
+    lda tail_poly
+    clc
+    adc #sizeof(line_s)*NUM_POLYS
+    and #POLY_WRAP_MASK
+    sta tail_poly
+}
+
+inline setup_poly_line(num)
+{
+    lda points[num].x
+    sta lines[(num-1)&3].x1, X
+    sta lines[num].x0, X
+    lda points[num].y
+    sta lines[(num-1)&3].y1, X
+    sta lines[num].y0, X
+}
+
+inline draw_poly_line(num)
+{
+    ldx head_poly
+
+    lda lines[num].x0, X
+    sta line_x0
+    lda lines[num].y0, X
+    sta line_y0
+    lda lines[num].x1, X
+    sta line_x1
+    lda lines[num].y1, X
+    sta line_y1
+
+    bresenham_set()
+}
+
+inline clear_poly_line(num)
+{
+    ldx tail_poly
+
+    lda lines[num].x0, X
+    sta line_x0
+    lda lines[num].y0, X
+    sta line_y0
+    lda lines[num].x1, X
+    sta line_x1
+    lda lines[num].y1, X
+    sta line_y1
+
+    bresenham_clr()
+}
+
+inline update_poly_point(num)
+{
+    clc
+    lda points[num].vx
+    if (minus)
+    {
+        adc points[num].x
+
+        cmp points[num].x
+        if (carry)
+        {
+            ldy #0
+            beq flip_x
+        }
+    }
+    else
+    {
+        adc points[num].x
+
+        cmp #TILES_WIDE*8
+        if (carry)
+        {
+            ldy #(TILES_WIDE*8)-1
+
+flip_x:
+            lda points[num].vx
+            eor #0xFF
+            tax
+            inx
+            stx points[num].vx
+
+            tya
+        }
+    }
+    sta points[num].x
+
+    clc
+    lda points[num].vy
+
+    if (minus)
+    {
+        adc points[num].y
+
+        cmp points[num].y
+        if (carry)
+        {
+            ldy #0
+            beq flip_y
+        }
+    }
+    else
+    {
+        adc points[num].y
+
+        cmp #TILES_HIGH*8
+        if (carry)
+        {
+            ldy #(TILES_HIGH*8)-1
+
+flip_y:
+            lda points[num].vy
+            eor #0xFF
+            tax
+            inx
+            stx points[num].vy
+
+            tya
+        }
+    }
+    sta points[num].y
 }
 
 /******************************************************************************/
