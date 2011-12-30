@@ -301,7 +301,7 @@ rotate_test_done:
     clear_triangle()
 }
 
-byte points_rom[] = {10,10,5,2, 160,100,-3,-7, 70,70,-6,10, 100,35,0,-10}
+byte points_rom[] = {10,10,2,5, 160,100,-3,-7, 70,160,-6,-8, 100,35,2,-3}
 
 function mystify_test()
 {

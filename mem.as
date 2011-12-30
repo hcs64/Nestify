@@ -1,7 +1,7 @@
 #define TILES_WIDE 24
 #define TILES_HIGH 21
 
-#ram.org 0x0, 0x40
+#ram.org 0x0, 0x50
 
 pointer tmp_addr
 byte    tmp_byte
@@ -42,8 +42,8 @@ byte dlist_start_jmp
 word dlist_start
 word dlist_next_byte
 
-#define MAX_DLISTS 4
-#define MAX_DLISTS_MOD_MASK %110
+#define MAX_DLISTS 8
+#define MAX_DLISTS_MOD_MASK %1110
 
 word dlists[MAX_DLISTS]
 byte dlist_read_idx
@@ -60,16 +60,16 @@ byte cmd_size
 byte cmd_cycles // reused for operation line range
 #ram.end
 
-#ram.org 0x40, 0x20
-// 0x40
+#ram.org 0x50, 0x10
+// 0x50
 shared byte frame_counter
-// 0x41
+// 0x51
 byte last_frame_time
-// 0x42
+// 0x52
 byte wasted_nmis
-// 0x43
+// 0x53
 byte total_dlists
-// 0x44
+// 0x54
 word stuck_cnt
 
 byte test_angle
@@ -135,7 +135,6 @@ byte dlist_wrap_jmp[3]
 
 #define NUM_POLYS 4
 #define POLY_WRAP_MASK %110000
-#tell.bankoffset
 typedef struct point_s {
     byte x, y, vx, vy
 }
