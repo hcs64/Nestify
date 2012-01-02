@@ -36,18 +36,15 @@ byte cur_nametable_page
 
 // small dlist stuff
 word dlist_cycles_left
-shared byte dlist_count
+byte dlist_interrupted
 
 byte dlist_start_jmp
 word dlist_start
+word dlist_end
 word dlist_next_byte
 
-#define MAX_DLISTS 8
-#define MAX_DLISTS_MOD_MASK %1110
-
-word dlists[MAX_DLISTS]
-byte dlist_read_idx
-byte dlist_write_idx
+word dlist_first_inst_addr
+byte dlist_first_inst_byte
 
 word cmd_addr
 byte cmd_start
@@ -66,7 +63,7 @@ shared byte frame_counter
 // 0x51
 byte last_frame_time
 // 0x52
-byte wasted_nmis
+byte wasted_vblanks
 // 0x53
 byte total_dlists
 // 0x54

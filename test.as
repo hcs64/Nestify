@@ -32,6 +32,8 @@ sintab:
 
 interrupt.irq int_irq()
 {
+    process_dlist_complete()
+    rts // actually return from process_dlist below
 }
 
 interrupt.nmi int_nmi()
@@ -44,41 +46,48 @@ interrupt.nmi int_nmi()
 
     lda PPU.STATUS
 
-    process_dlists()
+    process_dlist()
 
     /*
+    // a little perf bar
+
     vram_set_address_i( (NAME_TABLE_0_ADDRESS + (25*32) + 4) )
 
-    // a little perf bar
-    ldx last_frame_time
+    lda last_frame_time
+    tax
     sec
-    lda #24
+    lda #48
     sbc last_frame_time
     tay
     if (not carry)
     {
-        ldx #24
+        ldx #48
         ldy #0
     }
 
     dex
+    dex
     bmi done_fill
 fill_loop:
     lda #0xFD
+    dex
     dex
     bpl still_fill
     lda #0xFC
 still_fill:
     sta $2007
     dex
+    dex
     bpl fill_loop
 
 done_fill:
     lda #0xFF
     dey
+    dey
     bmi perf_bar_done
 empty_loop:
     sta $2007
+    dey
     dey
     bpl empty_loop
 perf_bar_done:
@@ -159,7 +168,7 @@ inline system_initialize_custom()
 
     sta frame_counter
     sta last_frame_time
-    sta wasted_nmis
+    sta wasted_vblanks
     sta total_dlists
 
     sta  PPU.BG_SCROLL
