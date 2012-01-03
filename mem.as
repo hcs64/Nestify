@@ -59,8 +59,8 @@ byte cmd_op
 byte cmd_byte[8]
 
 // only check_for_space_and_cycles() uses these
-byte cmd_size
-byte cmd_cycles // reused for operation line range
+byte cmd_size   // reused for operation line range
+byte cmd_cycles
 #ram.end
 
 #ram.org 0x50, 0x10
@@ -77,6 +77,7 @@ word stuck_cnt
 
 byte test_angle
 byte test_speed
+byte test_count
 
 #ram.end
 

@@ -86,8 +86,8 @@ function init_sendchr()
     assign(dlist_reset_cycles, #0)
 
     assign_16i(dlist_start, dlist_0)
-
-    setup_dlist()
+    lda #0
+    sta dlist_0
 
     // fill flip_nametable
     ldx #0x10
@@ -129,19 +129,17 @@ inline check_reset_cycles()
     if (carry)
     {
         assign_16i(dlist_cycles_left, MAX_VBLANK_CYCLES)
-        setup_dlist()
     }
 }
 
 function check_for_space_and_cycles()
 {
-#tell.bankoffset
     atomic_assign_16_16(dlist_write_limit, dlist_start)
 
     ldx cmd_size
-    inx
+    inx // 1 for BRK/CLC
     txa
-    sec
+    sec // 1 more for BRK
     adc dlist_next_byte+0
     sta tmp_addr+0
     lda #0
@@ -155,7 +153,7 @@ function check_for_space_and_cycles()
         cmp dlist_write_limit+0
         beq exactly_at_dlist_start
     }
-    bpl space_next_byte_greater
+    bcs space_next_byte_greater
 
     // next byte less, check end for overlap
     lda tmp_addr+1
@@ -165,8 +163,8 @@ function check_for_space_and_cycles()
         cmp dlist_write_limit+0
         beq out_of_space
     }
+    bcs out_of_space
 
-    bpl out_of_space
     // if both start and end are less than limit, no chance of
     // overlap or wraparound
     jmp enough_space
@@ -189,7 +187,7 @@ space_next_byte_greater:
         lda tmp_addr+0
         cmp #lo(DLIST_LAST_CMD_START)
     }
-    bmi enough_space    // no wrapping
+    bcc enough_space    // no wrapping
 
     // wrapping, determine where we'd end at the beginning
     lda tmp_addr+0
@@ -208,6 +206,7 @@ out_of_space:
 
 exactly_at_dlist_start:
 enough_space:
+
     check_reset_cycles()
 
     lda dlist_cycles_left+0
@@ -219,72 +218,82 @@ enough_space:
     sbc #0
     sta dlist_cycles_left+1
 
-    if (minus) {
+    if (minus)
+    {
+        // out of time for the next command, so previous must be final
         finalize_dlist()
-        setup_dlist()
+    }
+    else
+    {
+        // keep going incompletely
+        finalize_prev_command()
     }
 }
 
 inline finalize_command()
 {
     lda #$0     // BRK
-    tax
-    sta [dlist_next_byte,X]
-
-    // replace the initial BRK
-    lda dlist_cmd_first_inst_byte
-    sta [dlist_cmd_first_inst_addr,X]
-
-    // no advance, we will be overwriting that BRK later
-}
-
-function setup_dlist()
-{
-    lda #0  // BRK
     tay
     sta [dlist_next_byte], Y
 }
 
-//
+inline finalize_prev_command()
+{
+    // replace the initial BRK, exposing this command
+    ldy #$0
+    lda dlist_cmd_first_inst_byte
+    sta [dlist_cmd_first_inst_addr], Y
+
+    // no advance, we will be overwriting that BRK later
+}
+
 function finalize_dlist()
 {
-    lda #0
-    sta nmi_hit
-
-    lsr dlist_reset_cycles
-    if (carry)
-    {
-        // weirdly, it is marginally faster without this
-        //assign_16i(dlist_cycles_left, MAX_VBLANK_CYCLES)
-        rts
-    }
-
-    // put in another BRK
-    //lda #0      // BRK
-    ldy #1
-    sta [dlist_next_byte], Y
+    // NOTE: called before this command has been exposed, so this manipulation
+    // is invisible to the NMI.
+    // It will not skip over the initial BRK to get here, as we have not yet
+    // inserted the CLC to indicate this is a complete command.
+    //
+    // There may be an issue if the NMI hits after the check_reset_cycles call,
+    // that would run up to the start of this command. We would then have a
+    // "complete" dlist that consists only of this command. The termination
+    // will be such that it is handled correctly, but it will waste a frame
+    // after doing only this one command.
 
     // put a CLC over the old BRK
+    ldy #0
     lda #$18    // CLC
-    dey
     sta [dlist_next_byte], Y
 
-    lda nmi_hit
-    if (not zero)
-    {
-        lda #$EA
-        ldy #1
-        sta [dlist_next_byte], Y
-        dey
-        sta [dlist_next_byte], Y
-    }
+    // put in another BRK
+    lda #0      // BRK
+    iny
+    sta [dlist_next_byte], Y
 
     // moving on
     lda #2
     advance_next_byte()
 
-    // reset cycle count
-    assign_16i(dlist_cycles_left, MAX_VBLANK_CYCLES)
+    // and yet one more BRK to set up for the next command
+    lda #0
+    tay
+    sta [dlist_next_byte], Y
+
+    // replace the initial BRK, exposing this command
+    lda dlist_cmd_first_inst_byte
+    sta [dlist_cmd_first_inst_addr], Y
+
+    // reset cycle count, less the new command that wouldn't fit
+    sec
+    lda #lo(MAX_VBLANK_CYCLES)
+    sbc cmd_cycles
+    sta dlist_cycles_left+0
+    lda #hi(MAX_VBLANK_CYCLES)
+    sbc #0
+    sta dlist_cycles_left+1
+
+    // Can't be needing to reset cycles, we haven't exposed anything from this
+    // new dlist yet.
     lda #0
     sta dlist_reset_cycles
 }
@@ -448,7 +457,6 @@ inline process_dlist_complete()
     sec
     sbc irq_temp
     sta dlist_start+0
-#tell.bankoffset
     pla
     sbc #0
     sta dlist_start+1
@@ -827,7 +835,7 @@ function cmd_X_copy_all_lines()
     ora cmd_start
     tax
     lda rangetab-8, X
-    sta cmd_cycles
+    sta cmd_size
 
     cmd_maybe_X_2007_sta(cmd_byte+0, zp_immed_0) // 9 cycles, 7 bytes * lines +
     cmd_maybe_X_2007_sta(cmd_byte+1, zp_immed_1) // 7 cycles, 5 bytes * (8 - lines)
@@ -915,7 +923,7 @@ function cmd_set_all_lines()
     ora cmd_start
     tax
     lda rangetab-8, X
-    sta cmd_cycles
+    sta cmd_size
 
     cmd_2007_maybe_Y_lda_A_2007_sta(cmd_byte+0) // 6 cycles, 5 bytes * lines +
     cmd_2007_maybe_Y_lda_A_2007_sta(cmd_byte+1) // 4 cycles, 3 bytes * (8 - lines)
@@ -956,7 +964,7 @@ inline cmd_maybe_X_2007_sta(src, dst)
     ldy #$20
     add_inst_3()
 
-    lsr cmd_cycles // operation line range
+    lsr cmd_size // operation line range
     if (carry)
     {
         lda cmd_op  // ora or and imm: 2 cycles, 2 bytes
@@ -973,7 +981,7 @@ inline cmd_2007_maybe_Y_lda_A_2007_sta(src)
 {
     lda #$8C    // sty abs: 4 cycles, 3 bytes
 
-    lsr cmd_cycles  // operation line range
+    lsr cmd_size // operation line range
     if (carry)
     {
         lda #$A9    // lda imm: 2 cycles, 2 bytes
