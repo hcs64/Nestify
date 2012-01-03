@@ -254,6 +254,8 @@ function finalize_dlist()
     lsr dlist_reset_cycles
     if (carry)
     {
+        // weirdly, it is marginally faster without this
+        //assign_16i(dlist_cycles_left, MAX_VBLANK_CYCLES)
         rts
     }
 
