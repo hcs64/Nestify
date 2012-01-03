@@ -82,13 +82,12 @@ function init_sendchr()
 
     // init current dlist status
     assign_16i(dlist_next_byte, dlist_0)
-    assign(dlist_interrupted, #0)
     assign_16i(dlist_cycles_left, MAX_VBLANK_CYCLES)
-
-    lda #$0 // BRK
-    sta dlist_0
+    assign(dlist_reset_cycles, #0)
 
     assign_16i(dlist_start, dlist_0)
+
+    setup_dlist()
 
     // fill flip_nametable
     ldx #0x10
@@ -105,37 +104,44 @@ function init_sendchr()
     } while (not zero)
 }
 
-inline check_for_interruption()
+inline atomic_assign_16_16(dst, src)
 {
-    lsr dlist_interrupted
+    do {
+        lda #0
+        sta nmi_hit
+        assign_16_16(dst, src)
+        lda nmi_hit
+    } while (not zero)
+}
+
+function wait_for_interruption()
+{
+    lda #0
+    sta nmi_hit
+    do {
+        lda nmi_hit
+    } while (zero)
+}
+
+inline check_reset_cycles()
+{
+    lsr dlist_reset_cycles
     if (carry)
     {
-        handle_interruption()
+        assign_16i(dlist_cycles_left, MAX_VBLANK_CYCLES)
+        setup_dlist()
     }
 }
 
-inline wait_for_interruption()
-{
-    do {
-        lsr dlist_interrupted
-    } while (not carry)
-    handle_interruption()
-}
-
-function handle_interruption()
-{
-    assign_16i(dlist_cycles_left, MAX_VBLANK_CYCLES)
-    assign_16_16(dlist_start, dlist_end)
-}
-
-// blocks until space frees up,
-// if cycles are full, creates new dlist or blocks if we're already at max
 function check_for_space_and_cycles()
 {
-    check_for_interruption()
+#tell.bankoffset
+    atomic_assign_16_16(dlist_write_limit, dlist_start)
 
-    sec // extra byte for BRK
-    lda cmd_size
+    ldx cmd_size
+    inx
+    txa
+    sec
     adc dlist_next_byte+0
     sta tmp_addr+0
     lda #0
@@ -143,32 +149,38 @@ function check_for_space_and_cycles()
     sta tmp_addr+1
 
     lda dlist_next_byte+1
-    cmp dlist_start+1
+    cmp dlist_write_limit+1
     if (equal) {
         lda dlist_next_byte+0
-        cmp dlist_start+0
-        beq out_of_space
+        cmp dlist_write_limit+0
+        beq exactly_at_dlist_start
     }
     bpl space_next_byte_greater
 
     // next byte less, check end for overlap
     lda tmp_addr+1
-    cmp dlist_start+1
+    cmp dlist_write_limit+1
     if (equal) {
         lda tmp_addr+0
-        cmp dlist_start+0
-        //beq out_of_space
+        cmp dlist_write_limit+0
+        beq out_of_space
     }
 
     bpl out_of_space
-    // if both start and end are less then read (or end is equal), no chance of
+    // if both start and end are less than limit, no chance of
     // overlap or wraparound
     jmp enough_space
 
 space_next_byte_greater:
     // check end for wraparound
+
+    // wrapping can only matter if limit is on first page
+    lda dlist_write_limit+1
+    cmp #hi(dlist_0)
+    bne enough_space
+
     // this is conservative, assuming that the command ends with 1
-    // byte instructions that won't use up the "last chance" buffer
+    // byte instructions that won't use the "last chance" buffer
     lda tmp_addr+1
     cmp #hi(DLIST_LAST_CMD_START)
     // high byte will never be greater
@@ -183,31 +195,21 @@ space_next_byte_greater:
     lda tmp_addr+0
     sec
     sbc #lo(DLIST_WORST_CASE_SIZE)
-    // will be 8 bit result
-    cmp dlist_start+0
-    beq enough_space
-    bmi enough_space
+    cmp dlist_write_limit+0
+    bcc enough_space
 
 out_of_space:
-    
-    // if this is the first command, we're actually completely empty, not full
-    lda dlist_cycles_left+0
-    cmp #lo(MAX_VBLANK_CYCLES)
-    bne space_stuck
-    lda dlist_cycles_left+1
-    cmp #hi(MAX_VBLANK_CYCLES)
-    beq enough_space
 
-space_stuck:
     inc_16(stuck_cnt)
     
     wait_for_interruption()
 
+    jmp check_for_space_and_cycles
+
+exactly_at_dlist_start:
 enough_space:
+    check_reset_cycles()
 
-    assign_16_16(dlist_first_inst_addr, dlist_next_byte)
-
-cycles_wait:
     lda dlist_cycles_left+0
     sec
     sbc cmd_cycles
@@ -218,23 +220,71 @@ cycles_wait:
     sta dlist_cycles_left+1
 
     if (minus) {
-        wait_for_interruption()
-        jmp cycles_wait 
+        finalize_dlist()
+        setup_dlist()
     }
 }
 
-// A is first byte of the command
-inline finalize_command(cmd_byte)
+inline finalize_command()
 {
     lda #$0     // BRK
     tax
     sta [dlist_next_byte,X]
 
     // replace the initial BRK
-    lda #cmd_byte
-    sta [dlist_first_inst_addr,X]
+    lda dlist_cmd_first_inst_byte
+    sta [dlist_cmd_first_inst_addr,X]
 
     // no advance, we will be overwriting that BRK later
+}
+
+function setup_dlist()
+{
+    lda #0  // BRK
+    tay
+    sta [dlist_next_byte], Y
+}
+
+//
+function finalize_dlist()
+{
+    lda #0
+    sta nmi_hit
+
+    lsr dlist_reset_cycles
+    if (carry)
+    {
+        rts
+    }
+
+    // put in another BRK
+    //lda #0      // BRK
+    ldy #1
+    sta [dlist_next_byte], Y
+
+    // put a CLC over the old BRK
+    lda #$18    // CLC
+    dey
+    sta [dlist_next_byte], Y
+
+    lda nmi_hit
+    if (not zero)
+    {
+        lda #$EA
+        ldy #1
+        sta [dlist_next_byte], Y
+        dey
+        sta [dlist_next_byte], Y
+    }
+
+    // moving on
+    lda #2
+    advance_next_byte()
+
+    // reset cycle count
+    assign_16i(dlist_cycles_left, MAX_VBLANK_CYCLES)
+    lda #0
+    sta dlist_reset_cycles
 }
 
 /******************************************************************************/
@@ -279,32 +329,17 @@ inline add_inst_3()
     advance_next_byte()
 }
 
-inline add_inst_1_first()
-{
-    lda #1
-    advance_next_byte()
-}
-
-// A = 2nd byte
+// A = 1st byte, X = 2nd byte
 inline add_inst_2_first()
 {
+    sta dlist_cmd_first_inst_byte
     ldy #1
-    sta [dlist_next_byte],Y
-
-    lda #2
-    advance_next_byte()
-}
-
-// A = 2nd byte, X = 3rd byte
-inline add_inst_3_first()
-{
-    ldy #1
-    sta [dlist_next_byte],Y
-    iny
     txa
     sta [dlist_next_byte],Y
 
-    lda #3
+    assign_16_16(dlist_cmd_first_inst_addr, dlist_next_byte)
+
+    lda #2
     advance_next_byte()
 }
 
@@ -354,8 +389,8 @@ function sendchr_finish_frame()
 
     check_for_space_and_cycles()
 
-    //lda #$A5        // lda zp:  3 cycles, 2 bytes
-    lda #_ppu_ctl0
+    lda #$A5        // lda zp:  3 cycles, 2 bytes
+    ldx #_ppu_ctl0
     add_inst_2_first()
 
     lda #$49        // eor imm: 2 cycles, 2 bytes
@@ -371,11 +406,9 @@ function sendchr_finish_frame()
     ldy #$20
     add_inst_3()
 
-    finalize_command($A5)
+    finalize_command()
 
     //assign_16i(dlist_cycles_left, 0)
-
-    check_for_interruption()
 }
 
 /******************************************************************************/
@@ -383,40 +416,42 @@ function sendchr_finish_frame()
 // dlist processing during vblank
 function process_dlist()
 {
-    // don't do anything if the main thread hasn't ack'd yet
-    lda dlist_interrupted
-    bne no_dlists
-
-    // let the main thread know we were run
-    lda #$1
-    sta dlist_interrupted
-
+    sec // flag to know whether we've run an incomplete dlist
     jmp dlist_start_jmp
 
-no_dlists:
-    inc wasted_vblanks
+    // this will ultimately be returned by an RTS in the IRQ handler
 }
 
 // from IRQ, when the end be reached
 inline process_dlist_complete()
 {
     // get rid of saved flags
-    pla 
+    pla
 
-    // make sure we don't execute this one again even in the worst case
-    lda #0  // BRK
-    tax
-    sta [dlist_start,X]
+    // back up to one past the BRK, if this was a complete dlist
+    ldx #1
 
-    // now done with dlist, get the address of the BRK, where the next
-    // instruction will appear
+    if (carry)
+    {
+        // this was an incomplete dlist, reset cycle counter
+        lda #1
+        sta dlist_reset_cycles
+
+        // back up to where the BRK was
+        ldx #2
+    }
+    stx irq_temp
+
     pla
     sec
-    sbc #2
-    sta dlist_end+0
+    sbc irq_temp
+    sta dlist_start+0
+#tell.bankoffset
     pla
     sbc #0
-    sta dlist_end+1
+    sta dlist_start+1
+
+    rts // actually return from process_dlist
 }
 
 /******************************************************************************/
@@ -514,8 +549,8 @@ function cmd_X_update_lines()
 
     lda cmd_addr+0
     ora cmd_start
-    //tax
-    //lda #$A0        // ldy imm: 2 cycles, 2 bytes
+    tax
+    lda #$A0        // ldy imm: 2 cycles, 2 bytes
     add_inst_2_first()
 
     lda #$A2        // ldx imm: 2 cycles, 2 bytes
@@ -575,7 +610,7 @@ cmd_X_update_lines_1:
     lda #$20        // jsr: 6 + ?? cycles, 3 bytes
     add_inst_3()
 
-    finalize_command($A0)
+    finalize_command()
 }
 
 byte cmd_X_update_lines_jmp_tab_0, cmd_X_update_lines_jmp_tab_1
@@ -628,8 +663,8 @@ function cmd_set_lines()
 
     lda cmd_addr+0
     ora cmd_start
-    //tax
-    //lda #$A0        // ldy imm: 2 cycles, 2 bytes
+    tax
+    lda #$A0        // ldy imm: 2 cycles, 2 bytes
     add_inst_2_first()
 
     lda #$A2        // ldx imm: 2 cycles, 2 bytes
@@ -651,7 +686,7 @@ function cmd_set_lines()
         dec cmd_lines
     } while (not zero)
 
-    finalize_command($A0)
+    finalize_command()
 }
 
 // 12 + 3 * lines
@@ -692,8 +727,8 @@ function cmd_clr_lines()
 
     lda cmd_addr+0
     ora cmd_start
-    //tax
-    //lda #$A0        // ldy imm: 2 cycles, 2 bytes
+    tax
+    lda #$A0        // ldy imm: 2 cycles, 2 bytes
     add_inst_2_first()
 
     lda #$A2        // ldx imm: 2 cycles, 2 bytes
@@ -719,7 +754,7 @@ function cmd_clr_lines()
         dec cmd_lines
     } while (not zero)
 
-    finalize_command($A0)
+    finalize_command()
 }
 
 // 18 + 7 * lines + 5 * (8-lines)
@@ -758,8 +793,8 @@ function cmd_X_copy_all_lines()
 
     check_for_space_and_cycles()
 
-    //lda #$A0        // ldy imm: 2 cycles, 2 bytes
-    lda cmd_addr+0
+    lda #$A0        // ldy imm: 2 cycles, 2 bytes
+    ldx cmd_addr+0
     add_inst_2_first()
 
     lda #$A2        // ldx imm: 2 cycles, 2 bytes
@@ -810,7 +845,7 @@ function cmd_X_copy_all_lines()
     ldy #hi(zp_writer)
     add_inst_3()
 
-    finalize_command($A0)
+    finalize_command()
 }
 
 // 12 + 5 * lines + 3 * (8-lines)
@@ -849,8 +884,8 @@ function cmd_set_all_lines()
 
     check_for_space_and_cycles()
 
-    //lda #$A0        // ldy imm: 2 cycles, 2 bytes
-    lda cmd_addr+0
+    lda #$A0        // ldy imm: 2 cycles, 2 bytes
+    ldx cmd_addr+0
     add_inst_2_first()
 
     lda #$A2        // ldx imm: 2 cycles, 2 bytes
@@ -889,7 +924,7 @@ function cmd_set_all_lines()
     cmd_2007_maybe_Y_lda_A_2007_sta(cmd_byte+6)
     cmd_2007_maybe_Y_lda_A_2007_sta(cmd_byte+7)
 
-    finalize_command($A0)
+    finalize_command()
 }
 
 inline cmd_X_2007_sta(dst)
@@ -1030,8 +1065,8 @@ function cmd_tile_clear()
     check_for_space_and_cycles()
 
     
-    //lda #$A9    // lda imm: 2 cycles, 2 bytes
-    lda #0
+    lda #$A9    // lda imm: 2 cycles, 2 bytes
+    ldx #0
     add_inst_2_first()
 
     lda cmd_addr+0
@@ -1049,7 +1084,7 @@ function cmd_tile_clear()
     ldy #hi(vram_fill_tile)
     add_inst_3()
 
-    finalize_command($A9)
+    finalize_command()
 }
 
 // cmd_addr = VRAM address
@@ -1061,8 +1096,8 @@ function cmd_tile_copy()
     sty cmd_cycles
     check_for_space_and_cycles()
 
-    //lda #$A0    // ldy imm: 2 cycles, 2 bytes
-    lda cmd_addr+0
+    lda #$A0    // ldy imm: 2 cycles, 2 bytes
+    ldx cmd_addr+0
     add_inst_2_first()
 
     lda #$A2    // ldx imm: 2 cycles, 2 bytes
@@ -1075,5 +1110,5 @@ function cmd_tile_copy()
     ldy #hi(vram_copy_tile)
     add_inst_3()
 
-    finalize_command($A0)
+    finalize_command()
 }

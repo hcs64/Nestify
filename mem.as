@@ -34,17 +34,23 @@ byte other_frame_mask
 
 byte cur_nametable_page
 
+// always set by NMI, use to check if ops could be interrupted
+byte nmi_hit
+byte irq_temp
+byte nmi_temp
+
 // small dlist stuff
 word dlist_cycles_left
-byte dlist_interrupted
+byte dlist_reset_cycles
 
 byte dlist_start_jmp
 word dlist_start
-word dlist_end
+
+word dlist_write_limit // a copy of dlist_start, possibly old
 word dlist_next_byte
 
-word dlist_first_inst_addr
-byte dlist_first_inst_byte
+word dlist_cmd_first_inst_addr
+byte dlist_cmd_first_inst_byte
 
 word cmd_addr
 byte cmd_start

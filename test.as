@@ -33,7 +33,6 @@ sintab:
 interrupt.irq int_irq()
 {
     process_dlist_complete()
-    rts // actually return from process_dlist below
 }
 
 interrupt.nmi int_nmi()
@@ -45,6 +44,9 @@ interrupt.nmi int_nmi()
     pha
 
     lda PPU.STATUS
+
+    lda #1
+    sta nmi_hit
 
     process_dlist()
 
