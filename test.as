@@ -44,6 +44,7 @@ interrupt.nmi int_nmi()
     pha
 
     lda PPU.STATUS
+    ppu_ctl1_assign(#0)
 
     lda #1
     sta nmi_hit
@@ -100,6 +101,7 @@ perf_bar_done:
 
     // done with PPU stuff
     vram_clear_address()
+    ppu_ctl1_assign(#CR_BACKVISIBLE)
 
     // update controller once per frame
     reset_joystick()
@@ -227,6 +229,8 @@ interrupt.start noreturn main()
     // test begins
 
     forever {
+        //fill_test()
+
         mystify_test()
 
         rotate_test()
@@ -350,6 +354,58 @@ function mystify_test()
 mystify_test_done:
 
     clear_screen()
+}
+
+function fill_test()
+{
+    forever {
+
+        lda #255
+        sta test_count
+
+        do {
+            lda #1
+            sta cmd_lines
+            lda #0
+            sta cmd_start
+            assign_16i(cmd_addr, 0x1000+(12*20*16))
+            lda #$FF
+            sta cmd_byte[0]
+            cmd_set_lines()
+
+            lda #1
+            sta cmd_lines
+            lda #0
+            sta cmd_start
+            assign_16i(cmd_addr, 0x1000+(12*20*16))
+            lda #$FF
+            sta cmd_byte[0]
+            cmd_set_lines()
+
+            lda #1
+            sta cmd_lines
+            lda #0
+            sta cmd_start
+            assign_16i(cmd_addr, 0x1000+(12*20*16))
+            lda #$FF
+            sta cmd_byte[0]
+            cmd_set_lines()
+
+            lda #1
+            sta cmd_lines
+            lda #0
+            sta cmd_start
+            assign_16i(cmd_addr, 0x1000+(12*20*16))
+            lda #$FF
+            sta cmd_byte[0]
+            cmd_tile_copy()
+
+            dec test_count
+        } while (not zero)
+
+        finish_frame()
+        finish_frame()
+    }
 }
 
 inline process_button(button_mask, button_repeat_count, delta)
