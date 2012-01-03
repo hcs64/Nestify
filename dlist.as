@@ -373,7 +373,7 @@ function sendchr_finish_frame()
 
     finalize_command($A5)
 
-    assign_16i(dlist_cycles_left, 0)
+    //assign_16i(dlist_cycles_left, 0)
 
     check_for_interruption()
 }
