@@ -115,26 +115,24 @@ byte zp_immed_7[5]  // NN ; sta $2007 ; rts
 
 #ram.end
 
-#ram.org 0x200, 0x1F8
-
-#define DIRTY_FRAME_0   0x80
-#define DIRTY_FRAME_1   0x40
-#define COUNT_MASK      0x1F
-
-byte tile_status[TILES_WIDE*TILES_HIGH]
+#ram.org 0x100, 0x20
+// stack
+byte stack[0x20]
+stack_end:
 #ram.end
 
-#ram.org 0x400, 0x383
 
-#define DLIST_SIZE 0x380
-#define DLIST_WORST_CASE_SIZE 0x37C // -4
+#ram.org 0x120, 0x440
+
+#define DLIST_SIZE 0x440
+#define DLIST_WORST_CASE_SIZE (DLIST_SIZE-4)
 
 byte dlist_0[DLIST_SIZE]
 #define DLIST_LAST_CMD_START (dlist_0+DLIST_WORST_CASE_SIZE)
 
 #ram.end
 
-#ram.org 0x790, 0x62
+#ram.org 0x580, 0x62
 
 #define NUM_POLYS 4
 #define POLY_WRAP_MASK %110000
@@ -150,4 +148,13 @@ line_s lines[4*NUM_POLYS]
 
 byte head_poly, tail_poly
 
+#ram.end
+
+#ram.org 0x600, 0x1F8
+
+#define DIRTY_FRAME_0   0x80
+#define DIRTY_FRAME_1   0x40
+#define COUNT_MASK      0x1F
+
+byte tile_status[TILES_WIDE*TILES_HIGH]
 #ram.end

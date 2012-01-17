@@ -157,7 +157,8 @@ inline system_initialize_custom()
 {
     disable_decimal_mode()
     disable_interrupts()
-    reset_stack()
+    ldx #(stack_end-1)
+    txs
 
     // clear the registers
     lda  #0
