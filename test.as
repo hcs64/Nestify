@@ -171,11 +171,6 @@ inline system_initialize_custom()
     sta  _joypad0
     sta  _joypad0_acc
 
-    sta frame_counter
-    sta last_frame_time
-    sta wasted_vblanks
-    sta total_dlists
-
     sta  PPU.BG_SCROLL
     sta  PPU.BG_SCROLL
 
@@ -188,9 +183,9 @@ inline system_initialize_custom()
 
     // clear stats
     lda #0
-    ldx #0x20
+    ldx #0x10
     do {
-        sta 0x40, X
+        sta 0x50, X
         dex
     } while (not zero)
 

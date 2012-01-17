@@ -454,6 +454,12 @@ inline process_dlist_complete()
 
         // back up to where the BRK was
         ldx #2
+
+        inc_16(incomplete_vblanks)
+    }
+    else
+    {
+        inc_16(complete_vblanks)
     }
     stx irq_temp
 

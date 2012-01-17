@@ -69,10 +69,10 @@ shared byte frame_counter
 // 0x51
 byte last_frame_time
 // 0x52
-byte wasted_vblanks
-// 0x53
-byte total_dlists
+word incomplete_vblanks
 // 0x54
+word complete_vblanks
+// 0x56
 word stuck_cnt
 
 byte test_angle
