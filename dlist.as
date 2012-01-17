@@ -25,9 +25,6 @@ zp_writer_rom:
     rts             //  6
 zp_writer_rom_end:
 
-dlist_wrap_jmp_rom:
-    jmp dlist_0
-
 rangetab:
 #incbin "rangetab.bin"
 
@@ -65,14 +62,6 @@ function init_sendchr()
     do {
         lda zp_writer_rom, X
         sta zp_writer, X
-        dex
-    } while (not minus)
-
-    // load dlist_wrap_jmp
-    ldx #3-1
-    do {
-        lda dlist_wrap_jmp_rom, X
-        sta dlist_wrap_jmp, X
         dex
     } while (not minus)
 
@@ -172,11 +161,6 @@ function check_for_space_and_cycles()
 space_next_byte_greater:
     // check end for wraparound
 
-    // wrapping can only matter if limit is on first page
-    lda dlist_write_limit+1
-    cmp #hi(dlist_0)
-    bne enough_space
-
     // this is conservative, assuming that the command ends with 1
     // byte instructions that won't use the "last chance" buffer
     lda tmp_addr+1
@@ -189,12 +173,27 @@ space_next_byte_greater:
     }
     bcc enough_space    // no wrapping
 
-    // wrapping, determine where we'd end at the beginning
-    lda tmp_addr+0
-    sec
-    sbc #lo(DLIST_WORST_CASE_SIZE)
+    // wrapping, insert wrap
+    finalize_prev_command()
+
+    add_inst_3_addr_first($4C, dlist_0)  // jmp abs
+
+    assign_16i(dlist_next_byte, dlist_0)
+
+    lda #lo(dlist_0)
     cmp dlist_write_limit+0
-    bcc enough_space
+    bne space_for_wrap
+    lda #hi(dlist_0)
+    cmp dlist_write_limit+1
+    bne space_for_wrap
+
+    wait_for_interruption()
+
+space_for_wrap:
+    lda #0  // brk
+    sta dlist_0
+
+    jmp check_for_space_and_cycles
 
 out_of_space:
 
@@ -232,6 +231,9 @@ enough_space:
 
 inline finalize_command()
 {
+    tya
+    advance_next_byte()
+
     lda #$0     // BRK
     tay
     sta [dlist_next_byte], Y
@@ -300,44 +302,58 @@ function finalize_dlist()
 
 /******************************************************************************/
 
-// A = 1st byte
-inline add_inst_1()
-{
-    ldy #0
-    sta [dlist_next_byte],Y
-
-    lda #1
-    advance_next_byte()
-}
-
 // A = 1st byte, X = 2nd byte
 inline add_inst_2()
 {
-    ldy #0
     sta [dlist_next_byte],Y
     iny
     txa
     sta [dlist_next_byte],Y
-
-    lda #2
-    advance_next_byte()
+    iny
 }
 
-// A = 1st byte, X = 2nd byte, Y = 3rd byte
-inline add_inst_3()
+inline add_inst_3_A_addr(addr)
 {
-    sty tmp_byte
-    ldy #0
     sta [dlist_next_byte],Y
     iny
-    txa
-    sta [dlist_next_byte],Y
-    iny
-    lda tmp_byte
-    sta [dlist_next_byte],Y
 
-    lda #3
-    advance_next_byte()
+    lda #lo(addr)
+    sta [dlist_next_byte],Y
+    iny
+
+    lda #hi(addr)
+    sta [dlist_next_byte],Y
+    iny
+}
+
+inline add_inst_3_addr(byte0,addr)
+{
+    lda #byte0
+    sta [dlist_next_byte],Y
+    iny
+
+    lda #lo(addr)
+    sta [dlist_next_byte],Y
+    iny
+
+    lda #hi(addr)
+    sta [dlist_next_byte],Y
+    iny
+}
+
+inline add_inst_3_lookup(byte0,base0,base1)
+{
+    lda #byte0
+    sta [dlist_next_byte],Y
+    iny
+
+    lda base0, X
+    sta [dlist_next_byte],Y
+    iny
+
+    lda base1, X
+    sta [dlist_next_byte],Y
+    iny
 }
 
 // A = 1st byte, X = 2nd byte
@@ -345,13 +361,29 @@ inline add_inst_2_first()
 {
     sta dlist_cmd_first_inst_byte
     ldy #1
+
     txa
     sta [dlist_next_byte],Y
+    iny
 
     assign_16_16(dlist_cmd_first_inst_addr, dlist_next_byte)
+}
 
-    lda #2
-    advance_next_byte()
+inline add_inst_3_addr_first(byte0,addr)
+{
+    lda #byte0
+    sta dlist_cmd_first_inst_byte
+    ldy #1
+
+    lda #lo(addr)
+    sta [dlist_next_byte],Y
+    iny
+
+    lda #hi(addr)
+    sta [dlist_next_byte],Y
+    iny
+
+    assign_16_16(dlist_cmd_first_inst_addr, dlist_next_byte)
 }
 
 // number of bytes in A, will perform inc and wrap on dlist_next_byte
@@ -360,35 +392,10 @@ inline advance_next_byte()
     clc
     adc dlist_next_byte+0
     sta dlist_next_byte+0
+    tax
     lda #0
     adc dlist_next_byte+1
     sta dlist_next_byte+1
-
-    cmp #hi(DLIST_LAST_CMD_START)
-    if (equal)
-    {
-        advance_low_check()
-    }
-}
-
-function advance_low_check()
-{
-    lda dlist_next_byte+0
-    cmp #lo(DLIST_LAST_CMD_START)
-    if (not carry)
-    {
-        rts
-    }
-
-    tax
-    lda #$EA    // NOP
-    do {
-        sta (DLIST_LAST_CMD_START&0xff00), X
-        inx
-        cpx #lo(dlist_wrap_jmp)
-    } while (not equal)
-    
-    assign_16i(dlist_next_byte, dlist_0)
 }
 
 function sendchr_finish_frame()
@@ -412,10 +419,7 @@ function sendchr_finish_frame()
     ldx #_ppu_ctl0
     add_inst_2()
 
-    lda #$8D        // sta abs: 4 cycles, 3 bytes
-    ldx #$00
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($8D,$2000)  // sta abs: 4 cycles, 3 bytes
 
     finalize_command()
 
@@ -567,21 +571,12 @@ function cmd_X_update_lines()
     ldx cmd_addr+1
     add_inst_2()
 
-    lda #$8E        // stx abs: 4 cycles, 3 bytes
-    ldx #$06
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
 
-    lda #$8C        // sty abs: 4 cycles, 3 bytes
-    ldx #$06
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
 
     // dummy read
-    lda #$AD        // lda abs: 4 cycles, 3 bytes
-    ldx #$07
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($AD,$2007)  // lda abs: 4 cycles, 3 bytes
 
     // jump table via rts
     lda cmd_lines
@@ -612,13 +607,9 @@ cmd_X_update_lines_1:
 
     lda cmd_lines
     asl A
-    tay
-    lda zp_writer_lines_tab+0-2, Y
     tax
-    lda zp_writer_lines_tab+1-2, Y
-    tay
-    lda #$20        // jsr: 6 + ?? cycles, 3 bytes
-    add_inst_3()
+
+    add_inst_3_lookup($20,(zp_writer_lines_tab+0-2),(zp_writer_lines_tab+1-2)) // jsr 6 + ?? cycles, 3 bytes
 
     finalize_command()
 }
@@ -681,15 +672,9 @@ function cmd_set_lines()
     ldx cmd_addr+1
     add_inst_2()
 
-    lda #$8E        // stx abs: 4 cycles, 3 bytes
-    ldx #$06
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
 
-    lda #$8C        // sty abs: 4 cycles, 3 bytes
-    ldx #$06
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
 
     do {
         cmd_imm_sta_2007()    // 6 cycles, 5 bytes * lines
@@ -745,15 +730,9 @@ function cmd_clr_lines()
     ldx cmd_addr+1
     add_inst_2()
 
-    lda #$8E        // stx abs: 4 cycles, 3 bytes
-    ldx #$06
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
 
-    lda #$8C        // sty abs: 4 cycles, 3 bytes
-    ldx #$06
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($8C, $2006) // sty abs: 4 cycles, 3 bytes
 
     lda #$A9        // lda imm: 2 cycles, 2 bytes
     ldx #0
@@ -807,26 +786,18 @@ function cmd_X_copy_all_lines()
     ldx cmd_addr+0
     add_inst_2_first()
 
+    ldx cmd_addr+1
+    lda flip_nametable, X
+    tax
     lda #$A2        // ldx imm: 2 cycles, 2 bytes
-    ldy cmd_addr+1
-    ldx flip_nametable, Y
     add_inst_2()
 
-    lda #$8E        // stx abs: 4 cycles, 3 bytes
-    ldx #$06
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($8E,$2006)   // stx abs: 4 cycles, 3 bytes
 
-    lda #$8C        // sty abs: 4 cycles, 3 bytes
-    ldx #$06
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($8C, $2006)  // sty abs: 4 cycles, 3 bytes
 
     // dummy read
-    lda #$AD        // lda abs: 4 cycles, 3 bytes
-    ldx #$07
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($AD,$2007)   // lda abs: 4 cycles, 3 bytes
 
     lda cmd_lines
     asl A
@@ -850,10 +821,7 @@ function cmd_X_copy_all_lines()
     ldx cmd_addr+1
     add_inst_2()
 
-    lda #$20        // jsr: 6 + 62 cycles, 3 bytes
-    ldx #lo(zp_writer)
-    ldy #hi(zp_writer)
-    add_inst_3()
+    add_inst_3_addr($20,zp_writer)  // jsr: 6 + 62 cycles, 3 bytes
 
     finalize_command()
 }
@@ -902,15 +870,9 @@ function cmd_set_all_lines()
     ldx cmd_addr+1
     add_inst_2()
 
-    lda #$8E        // stx abs: 4 cycles, 3 bytes
-    ldx #$06
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
 
-    lda #$8C        // sty abs: 4 cycles, 3 bytes
-    ldx #$06
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
 
     lda #$A0        // ldy imm: 2 cycles, 2 bytes
     ldx #0
@@ -939,10 +901,7 @@ function cmd_set_all_lines()
 
 inline cmd_X_2007_sta(dst)
 {
-    lda #$AD    // lda abs: 4 cycles, 3 bytes
-    ldx #$07
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($AD,$2007)  // lda abs: 4 cycles, 3 bytes
 
     ldx cmd_start
     lda cmd_byte, X
@@ -959,10 +918,7 @@ inline cmd_X_2007_sta(dst)
 
 inline cmd_maybe_X_2007_sta(src, dst)
 {
-    lda #$AD    // lda abs: 4 cycles, 3 bytes
-    ldx #$07
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($AD,$2007)  // lda abs: 4 cycles, 3 bytes
 
     lsr cmd_size // operation line range
     if (carry)
@@ -991,9 +947,7 @@ inline cmd_2007_maybe_Y_lda_A_2007_sta(src)
         lda #$8D    // sta abs: 4 cycles, 3 bytes
     }
 
-    ldx #$07
-    ldy #$20
-    add_inst_3()
+    add_inst_3_A_addr($2007)
 }
 
 inline cmd_imm_sta_2007()
@@ -1006,63 +960,12 @@ inline cmd_imm_sta_2007()
     lda #$A9    // lda imm: 2 cycles, 2 bytes
     add_inst_2()
 
-    lda #$8D    // sta abs: 4 cycles, 3 bytes
-    ldx #$07
-    ldy #$20
-    add_inst_3()
+    add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
 }
 
 inline cmd_sta_2007()
 {
-    lda #$8D    // sta abs: 4 cycles, 3 bytes
-    ldx #$07
-    ldy #$20
-    add_inst_3()
-}
-
-inline cmd_or_2007_sta(src, dst)
-{
-    lda #$AD    // lda abs: 4 cycles, 3 bytes
-    ldx #$07
-    ldy #$20
-    add_inst_3()
-
-    lda #$09    // ora imm: 2 cycles, 2 bytes
-    ldx (src)
-    add_inst_2()
-
-    lda #$85    // sta zp: 3 cycles, 2 bytes
-    ldx #(dst)
-    add_inst_2()
-}
-
-inline cmd_and_2007_sta(src, dst)
-{
-    lda #$AD    // lda abs: 4 cycles, 3 bytes
-    ldx #$07
-    ldy #$20
-    add_inst_3()
-
-    lda (src)
-    eor #$FF
-    tax
-    lda #$29    // and imm: 2 cycles, 2 bytes
-    add_inst_2()
-
-    lda #$85    // sta zp: 3 cycles, 2 bytes
-    ldx #(dst)
-    add_inst_2()
-}
-
-inline cmd_lda_sta(src, dst)
-{
-    lda #$A9    // lda imm: 2 cycles, 2 bytes
-    ldx src
-    add_inst_2()
-
-    lda #$85    // sta zp: 3 cycles, 2 bytes
-    ldx #(dst)
-    add_inst_2()
+    add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
 }
 
 // cmd_addr = VRAM address
@@ -1089,10 +992,7 @@ function cmd_tile_clear()
     ldx cmd_addr+1
     add_inst_2()
 
-    lda #$20    // jsr: 6 + 46 cycles, 3 bytes
-    ldx #lo(vram_fill_tile)
-    ldy #hi(vram_fill_tile)
-    add_inst_3()
+    add_inst_3_addr($20, vram_fill_tile) // jsr: 6 + 46 cycles, 3 bytes
 
     finalize_command()
 }
@@ -1110,15 +1010,13 @@ function cmd_tile_copy()
     ldx cmd_addr+0
     add_inst_2_first()
 
+    ldx cmd_addr+1
+    lda flip_nametable, X
+    tax
     lda #$A2    // ldx imm: 2 cycles, 2 bytes
-    ldy cmd_addr+1
-    ldx flip_nametable, Y
     add_inst_2()
 
-    lda #$20    // jsr: 6 + 139 cycles, 3 bytes
-    ldx #lo(vram_copy_tile)
-    ldy #hi(vram_copy_tile)
-    add_inst_3()
+    add_inst_3_addr($20, vram_copy_tile) // jsr: 6 + 139 cycles, 3 bytes
 
     finalize_command()
 }

@@ -131,7 +131,6 @@ byte tile_status[TILES_WIDE*TILES_HIGH]
 
 byte dlist_0[DLIST_SIZE]
 #define DLIST_LAST_CMD_START (dlist_0+DLIST_WORST_CASE_SIZE)
-byte dlist_wrap_jmp[3]
 
 #ram.end
 
