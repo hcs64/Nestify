@@ -124,9 +124,9 @@ stack_end:
 #ram.end
 
 
-#ram.org 0x120, 0x4a0
+#ram.org 0x120, 0x490
 
-#define DLIST_SIZE 0x460
+#define DLIST_SIZE 0x490
 #define DLIST_WORST_CASE_SIZE (DLIST_SIZE-4)
 
 byte dlist_0[DLIST_SIZE]
