@@ -74,8 +74,6 @@ word incomplete_vblanks
 word complete_vblanks
 // 0x56
 word stuck_cnt
-// 0x58
-word stuck_wrap_cnt
 
 byte test_angle
 byte test_speed
