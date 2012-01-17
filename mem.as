@@ -79,6 +79,8 @@ byte test_angle
 byte test_speed
 byte test_count
 
+byte head_poly, tail_poly
+
 #ram.end
 
 #ram.org 0x60, 0x20
@@ -122,9 +124,9 @@ stack_end:
 #ram.end
 
 
-#ram.org 0x120, 0x440
+#ram.org 0x120, 0x4a0
 
-#define DLIST_SIZE 0x440
+#define DLIST_SIZE 0x460
 #define DLIST_WORST_CASE_SIZE (DLIST_SIZE-4)
 
 byte dlist_0[DLIST_SIZE]
@@ -132,7 +134,7 @@ byte dlist_0[DLIST_SIZE]
 
 #ram.end
 
-#ram.org 0x580, 0x62
+#ram.org 0x5b0, 0x50
 
 #define NUM_POLYS 4
 #define POLY_WRAP_MASK %110000
@@ -145,8 +147,6 @@ typedef struct line_s {
     byte x0, x1, y0, y1
 }
 line_s lines[4*NUM_POLYS]
-
-byte head_poly, tail_poly
 
 #ram.end
 
