@@ -187,6 +187,7 @@ space_next_byte_greater:
     cmp dlist_write_limit+1
     bne space_for_wrap
 
+    inc_16(stuck_wrap_cnt)
     wait_for_interruption()
 
 space_for_wrap:
@@ -541,8 +542,8 @@ function noreturn vram_copy_tile()
 // 16 + 7 * lines
 byte cmd_X_update_lines_bytes[8] = {
     13 + 14,
-    13 + 23,
-    13 + 35,
+    13 + 17,
+    13 + 24,
     16 + (7 * 4),
     16 + (7 * 5),
     16 + (7 * 6),
@@ -553,8 +554,8 @@ byte cmd_X_update_lines_bytes[8] = {
 // 22 + 9 * lines + zp_writer
 byte cmd_X_update_lines_cycles[8] = {
     16 + 18,
-    16 + 30,
-    16 + 46,
+    16 + 36,
+    16 + 52,
     22 + (9 * 4) + (11 + (6 * 4) + 6),
     22 + (9 * 5) + (11 + (6 * 5) + 6),
     22 + (9 * 6) + (11 + (6 * 6) + 6),
@@ -632,14 +633,14 @@ function cmd_X_update_lines_1()
 {
     cmd_X_2007(cmd_byte+0)    // 6 cycles, 5 bytes
 
-    add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
-    add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
-    add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
+    add_inst_3_addr($8E, $2006) // stx abs: 4 cycles, 3 bytes
+    add_inst_3_addr($8C, $2006) // sty abs: 4 cycles, 3 bytes
+    add_inst_3_addr($8D, $2007) // sta abs: 4 cycles, 3 bytes
 
     finalize_command()
 }
 
-// 30 cycles, 23 bytes
+// 36 cycles, 17 bytes
 function cmd_X_update_lines_2()
 {
     add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
@@ -651,15 +652,19 @@ function cmd_X_update_lines_2()
 
     cmd_X_2007(cmd_byte+1)  // 6 cycles, 5 bytes
 
-    add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
-
-    add_inst_3_addr($8E,$2007)  // stx abs: 4 cycles, 3 bytes
-    add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
+    add_inst_3_addr($20, cmd_X_update_lines_2_finish)   // jsr 6 + 12 cycles, 3 bytes
 
     finalize_command()
 }
 
-// 46 cycles, 35 bytes
+function cmd_X_update_lines_2_finish()
+{
+    sty $2006   // 4
+    stx $2007   // 4
+    sta $2007   // 4
+}
+
+// 52 cycles, 24 bytes
 function cmd_X_update_lines_3()
 {
     add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
@@ -673,17 +678,20 @@ function cmd_X_update_lines_3()
 
     cmd_X_2007(cmd_byte+2)  // 6 cycles, 5 bytes
 
-    add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
-
-    lda #$A4    // ldy zp: 3 cycles, 2 bytes
-    ldx #zp_immed_5
-    add_inst_2()
-
-    add_inst_3_addr($8C,$2007)  // sty abs: 4 cycles, 3 bytes
-    add_inst_3_addr($8E,$2007)  // stx abs: 4 cycles, 3 bytes
-    add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
+    add_inst_3_addr($20, cmd_X_update_lines_3_finish)   // jsr 6 + 19 cycles, 3 bytes
 
     finalize_command()
+
+}
+
+function cmd_X_update_lines_3_finish()
+{
+    sty $2006   // 4
+
+    ldy zp_immed_5  // 3
+    sty $2007   // 4
+    stx $2007   // 4
+    sta $2007   // 4
 }
 
 byte cmd_X_update_lines_jmp_tab_0, cmd_X_update_lines_jmp_tab_1
