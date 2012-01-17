@@ -302,6 +302,13 @@ function finalize_dlist()
 
 /******************************************************************************/
 
+// A = 1st byte
+inline add_inst_1()
+{
+    sta [dlist_next_byte],Y
+    iny
+}
+
 // A = 1st byte, X = 2nd byte
 inline add_inst_2()
 {
@@ -533,9 +540,9 @@ function noreturn vram_copy_tile()
 
 // 16 + 7 * lines
 byte cmd_X_update_lines_bytes[8] = {
-    16 + (7 * 1),
-    16 + (7 * 2),
-    16 + (7 * 3),
+    13 + 14,
+    13 + 23,
+    13 + 35,
     16 + (7 * 4),
     16 + (7 * 5),
     16 + (7 * 6),
@@ -545,9 +552,9 @@ byte cmd_X_update_lines_bytes[8] = {
 
 // 22 + 9 * lines + zp_writer
 byte cmd_X_update_lines_cycles[8] = {
-    22 + (9 * 1) + (11 + (6 * 1) + 6),
-    22 + (9 * 2) + (11 + (6 * 2) + 6),
-    22 + (9 * 3) + (11 + (6 * 3) + 6),
+    16 + 18,
+    16 + 30,
+    16 + 46,
     22 + (9 * 4) + (11 + (6 * 4) + 6),
     22 + (9 * 5) + (11 + (6 * 5) + 6),
     22 + (9 * 6) + (11 + (6 * 6) + 6),
@@ -604,11 +611,11 @@ cmd_X_update_lines_5:
     cmd_X_2007_sta(zp_immed_3)
 cmd_X_update_lines_4:
     cmd_X_2007_sta(zp_immed_4)
-cmd_X_update_lines_3:
+//cmd_X_update_lines_3:
     cmd_X_2007_sta(zp_immed_5)
-cmd_X_update_lines_2:
+//cmd_X_update_lines_2:
     cmd_X_2007_sta(zp_immed_6)
-cmd_X_update_lines_1:    
+//cmd_X_update_lines_1:    
     cmd_X_2007_sta(zp_immed_7)
 
     lda cmd_lines
@@ -616,6 +623,65 @@ cmd_X_update_lines_1:
     tax
 
     add_inst_3_lookup($20,(zp_writer_lines_tab+0-2),(zp_writer_lines_tab+1-2)) // jsr 6 + ?? cycles, 3 bytes
+
+    finalize_command()
+}
+
+// 18 cycles, 14 bytes
+function cmd_X_update_lines_1()
+{
+    cmd_X_2007(cmd_byte+0)    // 6 cycles, 5 bytes
+
+    add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
+    add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
+    add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
+
+    finalize_command()
+}
+
+// 30 cycles, 23 bytes
+function cmd_X_update_lines_2()
+{
+    add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
+
+    cmd_X_2007(cmd_byte+0)  // 6 cycles, 5 bytes
+
+    lda #$AA // tax: 2 cycles, 1 byte
+    add_inst_1() 
+
+    cmd_X_2007(cmd_byte+1)  // 6 cycles, 5 bytes
+
+    add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
+
+    add_inst_3_addr($8E,$2007)  // stx abs: 4 cycles, 3 bytes
+    add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
+
+    finalize_command()
+}
+
+// 46 cycles, 35 bytes
+function cmd_X_update_lines_3()
+{
+    add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
+
+    cmd_X_2007_sta_noinc(zp_immed_5,cmd_byte+0)  // 9 cycles, 7 bytes
+
+    cmd_X_2007(cmd_byte+1)  // 6 cycles, 5 bytes
+
+    lda #$AA // tax: 2 cycles, 1 byte
+    add_inst_1() 
+
+    cmd_X_2007(cmd_byte+2)  // 6 cycles, 5 bytes
+
+    add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
+
+    lda #$A4    // ldy zp: 3 cycles, 2 bytes
+    ldx #zp_immed_5
+    add_inst_2()
+
+    add_inst_3_addr($8C,$2007)  // sty abs: 4 cycles, 3 bytes
+    add_inst_3_addr($8E,$2007)  // stx abs: 4 cycles, 3 bytes
+    add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
 
     finalize_command()
 }
@@ -919,6 +985,32 @@ inline cmd_X_2007_sta(dst)
 
     lda #$85    // sta zp: 3 cycles, 2 bytes
     ldx #(dst)
+    add_inst_2()
+}
+
+inline cmd_X_2007_sta_noinc(dst,src)
+{
+    add_inst_3_addr($AD,$2007)  // lda abs: 4 cycles, 3 bytes
+
+    ldx cmd_start
+    lda src, X
+    tax
+    lda cmd_op  // ora or and imm: 2 cycles, 2 bytes
+    add_inst_2()
+
+    lda #$85    // sta zp: 3 cycles, 2 bytes
+    ldx #(dst)
+    add_inst_2()
+}
+
+inline cmd_X_2007(src)
+{
+    add_inst_3_addr($AD,$2007)  // lda abs: 4 cycles, 3 bytes
+
+    ldx cmd_start
+    lda src, X
+    tax
+    lda cmd_op  // ora or and imm: 2 cycles, 2 bytes
     add_inst_2()
 }
 
