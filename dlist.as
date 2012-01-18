@@ -547,7 +547,7 @@ byte cmd_X_update_lines_bytes[8] = {
     16 + (7 * 5),
     16 + (7 * 6),
     16 + (7 * 7),
-    16 + (7 * 8),
+    13 + 59
 }
 
 // 22 + 9 * lines + zp_writer
@@ -559,7 +559,7 @@ byte cmd_X_update_lines_cycles[8] = {
     22 + (9 * 5) + (11 + (6 * 5) + 6),
     22 + (9 * 6) + (11 + (6 * 6) + 6),
     22 + (9 * 7) + (11 + (6 * 7) + 6),
-    22 + (9 * 8) + 62
+    16 + 140
 }
 
 function cmd_X_update_lines()
@@ -601,8 +601,8 @@ function cmd_X_update_lines()
     pha
     rts
 
-cmd_X_update_lines_8:
-    cmd_X_2007_sta(zp_immed_0)  // 9 cycles, 7 bytes * lines
+//cmd_X_update_lines_8:
+//    cmd_X_2007_sta(zp_immed_0)  // 9 cycles, 7 bytes * lines
 cmd_X_update_lines_7:
     cmd_X_2007_sta(zp_immed_1)
 cmd_X_update_lines_6:
@@ -683,6 +683,23 @@ function cmd_X_update_lines_3()
     add_inst_3_addr($8E,$2007)  // stx abs: 4 cycles, 3 bytes
     add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
 
+    finalize_command()
+}
+
+// 140 cycles, 59 bytes
+// no faster, but avoids extra work when generating
+function cmd_X_update_lines_8()
+{
+    cmd_X_2007_sta_fixed(zp_immed_0,cmd_byte+0)  // 9 cycles, 7 bytes * 8
+    cmd_X_2007_sta_fixed(zp_immed_1,cmd_byte+1)
+    cmd_X_2007_sta_fixed(zp_immed_2,cmd_byte+2)
+    cmd_X_2007_sta_fixed(zp_immed_3,cmd_byte+3)
+    cmd_X_2007_sta_fixed(zp_immed_4,cmd_byte+4)
+    cmd_X_2007_sta_fixed(zp_immed_5,cmd_byte+5)
+    cmd_X_2007_sta_fixed(zp_immed_6,cmd_byte+6)
+    cmd_X_2007_sta_fixed(zp_immed_7,cmd_byte+7)
+
+    add_inst_3_addr($20,zp_writer) // jsr 6 + 62 cycles, 3 bytes
     finalize_command()
 }
 
@@ -981,6 +998,19 @@ inline cmd_X_2007_sta(dst)
     stx cmd_start
     tax
     lda cmd_op  // ora or and imm: 2 cycles, 2 bytes
+    add_inst_2()
+
+    lda #$85    // sta zp: 3 cycles, 2 bytes
+    ldx #(dst)
+    add_inst_2()
+}
+
+inline cmd_X_2007_sta_fixed(dst,src)
+{
+    add_inst_3_addr($AD,$2007)  // lda abs: 4 cycles, 3 bytes
+
+    lda cmd_op  // ora or and imm: 2 cycles, 2 bytes
+    ldx src
     add_inst_2()
 
     lda #$85    // sta zp: 3 cycles, 2 bytes
