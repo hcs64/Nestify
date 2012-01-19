@@ -2,7 +2,7 @@
 
 // cmd_byte[X&7 to X&7 + cmd_lines] = bits to OR with
 // Y:X = first line address
-function or_block()
+function noreturn or_block()
 {
     stx cmd_addr+0
     tya
@@ -23,36 +23,12 @@ function or_block()
     lda #$09 // ora imm
     sta cmd_op
 
-    add_prim()
-
-    if (zero) {
-        // tile is clean
-
-        if (carry) {
-            // no previous prim, set is ok
-            cmd_set_lines()
-        } else {
-            // lay on top of existing prims
-            cmd_X_update_lines()
-        }
-    }
-    else
-    {
-        // tile is dirty
-
-        if (carry) {
-            // no previous prim, set entire block
-            cmd_set_all_lines()
-        } else {
-            // copy previous frame + set
-            cmd_X_copy_all_lines()
-        }
-    }
+    add_prim(cmd_set_lines, cmd_X_update_lines, cmd_set_all_lines, cmd_X_copy_all_lines, tile_cache_update_set, tile_cache_add)
 }
 
 // cmd_byte[X&7 to X&7 + cmd_lines] = bits to clear
 // Y:X = first line address
-function clr_block()
+function noreturn clr_block()
 {
     stx cmd_addr+0
     tya
@@ -73,29 +49,5 @@ function clr_block()
     lda #$29 // and imm
     sta cmd_op
 
-    remove_prim()
-
-    if (zero) {
-        // tile is clean
-
-        if (carry) {
-            // no remaining prim, clear is ok
-            cmd_clr_lines()
-        } else {
-            // clear bits in preexisting prims
-            cmd_X_update_lines()
-        }
-    }
-    else
-    {
-        // tile is dirty
-
-        if (carry) {
-            // no previous prim, clear entire block
-            cmd_tile_clear()
-        } else {
-            // copy previous frame + clear
-            cmd_X_copy_all_lines()
-        }
-    }
+    remove_prim(cmd_clr_lines, cmd_X_update_lines, cmd_tile_clear, cmd_X_copy_all_lines, tile_cache_update_clr, tile_cache_remove)
 }

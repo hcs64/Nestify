@@ -124,9 +124,9 @@ stack_end:
 #ram.end
 
 
-#ram.org 0x120, 0x490
+#ram.org 0x120, 0x390
 
-#define DLIST_SIZE 0x490
+#define DLIST_SIZE 0x390
 #define DLIST_WORST_CASE_SIZE (DLIST_SIZE-4)
 
 byte dlist_0[DLIST_SIZE]
@@ -134,7 +134,7 @@ byte dlist_0[DLIST_SIZE]
 
 #ram.end
 
-#ram.org 0x5b0, 0x50
+#ram.org 0x4b0, 0x50
 
 #define NUM_POLYS 4
 #define POLY_WRAP_MASK %110000
@@ -150,10 +150,17 @@ line_s lines[4*NUM_POLYS]
 
 #ram.end
 
+#ram.org 0x500, 0x100
+#define TILE_CACHE_SIZE (31*8)  // 0xF8
+byte tile_cache[TILE_CACHE_SIZE]
+byte tile_cache_used[4] // 31 bits
+#ram.end
+
 #ram.org 0x600, 0x1F8
 
 #define DIRTY_FRAME_0   0x80
 #define DIRTY_FRAME_1   0x40
+#define CACHED_MASK     0x20
 #define COUNT_MASK      0x1F
 
 byte tile_status[TILES_WIDE*TILES_HIGH]

@@ -62,7 +62,7 @@ interrupt.nmi int_nmi()
     lda #48
     sbc last_frame_time
     tay
-    if (not carry)
+    if (not carry)zero
     {
         ldx #48
         ldy #0
@@ -180,6 +180,13 @@ inline system_initialize_custom()
 
     lda  #0xC0
     sta  joystick.cnt1
+
+    // clear ZP
+    lda #0
+    do {
+        sta 0x0, X
+        dex
+    } while (not zero)
 
     // clear stats
     lda #0

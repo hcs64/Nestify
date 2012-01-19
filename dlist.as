@@ -1044,6 +1044,17 @@ inline cmd_X_2007(src)
     add_inst_2()
 }
 
+inline cmd_imm_2007(src)
+{
+    ldx cmd_start
+    lda (src), X
+    tax
+    lda #$A9    // lda imm: 2 cycles, 2 bytes
+    add_inst_2()
+
+    add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
+}
+
 inline cmd_maybe_X_2007_sta(src, dst)
 {
     add_inst_3_addr($AD,$2007)  // lda abs: 4 cycles, 3 bytes
@@ -1145,6 +1156,38 @@ function cmd_tile_copy()
     add_inst_2()
 
     add_inst_3_addr($20, vram_copy_tile) // jsr: 6 + 139 cycles, 3 bytes
+
+    finalize_command()
+}
+
+// cmd_start = cache address
+function cmd_tile_cache_writeback()
+{
+    ldx #50
+    ldy #60
+    stx cmd_size
+    sty cmd_cycles
+    check_for_space_and_cycles()
+
+    lda #$A0    // ldy imm: 2 cycles, 2 bytes
+    ldx cmd_addr+0
+    add_inst_2_first()
+
+    lda #$A2    // ldx imm: 2 cycles, 2 bytes
+    ldx cmd_addr+1
+    add_inst_2()
+
+    add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
+    add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
+
+    cmd_imm_2007(tile_cache+0)  // 6 cycles, 5 bytes * 8
+    cmd_imm_2007(tile_cache+1)
+    cmd_imm_2007(tile_cache+2)
+    cmd_imm_2007(tile_cache+3)
+    cmd_imm_2007(tile_cache+4)
+    cmd_imm_2007(tile_cache+5)
+    cmd_imm_2007(tile_cache+6)
+    cmd_imm_2007(tile_cache+7)
 
     finalize_command()
 }

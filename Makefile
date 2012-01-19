@@ -8,7 +8,8 @@ vector.as
 
 PREGEN = \
 sintab.bin \
-rangetab.bin
+rangetab.bin \
+cachemap.bin
 
 IMAGES =
 
@@ -25,6 +26,9 @@ sintab.bin: sintab.py
 
 rangetab.bin: rangetab.py
 	./rangetab.py
+
+cachemap.bin: cachemap.py
+	./cachemap.py
 
 clean:
 	rm -f test.nes $(PREGEN) log.txt
