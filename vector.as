@@ -715,8 +715,13 @@ function finish_frame()
 
     lda frame_counter
     sta last_frame_time
-    lda #0
-    sta frame_counter
+    ldx #0
+    stx frame_counter
+
+    cmp highest_frame_time
+    if (carry) {
+        sta highest_frame_time
+    }
 
     lda cur_nametable_page
     eor #0x10

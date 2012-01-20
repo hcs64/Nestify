@@ -52,7 +52,7 @@ word dlist_next_byte
 word dlist_cmd_first_inst_addr
 byte dlist_cmd_first_inst_byte
 
-byte tile_cache_used[4] // 31 bits
+byte tile_cache_used[2] // 15 bits
 
 word cmd_addr
 byte cmd_start
@@ -76,6 +76,8 @@ word incomplete_vblanks
 word complete_vblanks
 // 0x56
 word stuck_cnt
+// 0x58
+byte highest_frame_time
 
 byte test_angle
 byte test_speed
@@ -126,9 +128,9 @@ stack_end:
 #ram.end
 
 
-#ram.org 0x120, 0x410
+#ram.org 0x120, 0x420
 
-#define DLIST_SIZE 0x410
+#define DLIST_SIZE 0x420
 #define DLIST_WORST_CASE_SIZE (DLIST_SIZE-4)
 
 byte dlist_0[DLIST_SIZE]
@@ -136,7 +138,7 @@ byte dlist_0[DLIST_SIZE]
 
 #ram.end
 
-#ram.org 0x530, 0x50
+#ram.org 0x540, 0x50
 
 #define NUM_POLYS 4
 #define POLY_WRAP_MASK %110000
@@ -152,8 +154,8 @@ line_s lines[4*NUM_POLYS]
 
 #ram.end
 
-#ram.org 0x580, 0x88
-#define TILE_CACHE_SIZE (17*8)
+#ram.org 0x590, 0x78
+#define TILE_CACHE_SIZE (15*8)
 byte tile_cache[TILE_CACHE_SIZE]
 #ram.end
 

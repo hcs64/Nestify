@@ -342,6 +342,9 @@ function mystify_test()
 
     finish_frame()
 
+    lda #0
+    sta highest_frame_time
+
     forever {
         clear_poly()
         draw_poly()
