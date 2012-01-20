@@ -8,9 +8,13 @@ outfile = open("cachemap.bin", 'wb')
 for x in range(24):
     for y in range(21):
         screenx = (x/2)+(x%2)*12
-        #cacheline=(int(sqrt((screenx-12)*(screenx-12)+(y-10)*(y-10)))%7)*2+(x%2)
+        screeny = y
+
         relx = (screenx-12)
-        rely = (y-10.5)
+        rely = (screeny-10.5)
         angle = atan2(rely, relx)
+        dist = sqrt(relx*relx+rely*rely)
+
         cacheline = int((angle + pi)/(2*pi) * 15)
+
         outfile.write(pack("B", cacheline))
