@@ -22,7 +22,7 @@ function init_tracktiles()
         sta tile_status+0x100, X
     } while (not zero)
 
-    ldx #4
+    ldx #TILE_CACHE_USED_SIZE
     do {
         dex
         sta tile_cache_used, X
@@ -38,6 +38,10 @@ function init_tracktiles()
     sta this_frame_mask
     lda #DIRTY_FRAME_1
     sta other_frame_mask
+    lda #COUNT_MASK
+    sta count_mask_zp
+    lda #CACHED_MASK
+    sta cached_mask_zp
 }
 
 function clear_screen()
@@ -46,7 +50,7 @@ function clear_screen()
     ldx #0
     do {
         lda tile_status, X
-        bit count_mask_rom
+        bit count_mask_zp
         if (not zero)
         {
             lda #DIRTY_FRAME_0|DIRTY_FRAME_1
@@ -59,7 +63,7 @@ function clear_screen()
     ldx #(TILES_WIDE*TILES_HIGH)-0x100
     do {
         lda tile_status+0x100-1, X
-        bit count_mask_rom
+        bit count_mask_zp
         if (not zero) {
             lda #DIRTY_FRAME_0|DIRTY_FRAME_1
             sta tile_status+0x100-1, X
@@ -73,79 +77,67 @@ inline tracktiles_finish_frame0(count, countdirop, page)
     ldx #count
     do {
         countdirop
-        stx tmp_byte2
 
         lda tile_status+(page*0x100), X
 
-        bit cached_mask_rom
-        beq check_other_frame
-        bit other_frame_mask
-        bne writeback_tile_other_frame
-        bit this_frame_mask
-        beq done_flush_tile
-        bne writeback_tile_this_frame
+        beq no_finish_needed
 
-writeback_tile_other_frame:
+        // never need to update if it wasn't touched previous frame
+        bit other_frame_mask
+        beq no_finish_needed
+
         eor other_frame_mask
         sta tile_status+(page*0x100), X
 
-writeback_tile_this_frame:
+        // never need to update if it was touched already this frame
+        bit this_frame_mask
+        bne no_finish_needed
 
-            stx cmd_addr+0
-            lda #page
-            asl cmd_addr+0
-            rol A
-            asl cmd_addr+0
-            rol A
-            asl cmd_addr+0
-            rol A
-            ora cur_nametable_page
-            sta cmd_addr+1
+        stx tmp_byte2
+        tay
 
-            lda cache_map+(page*0x100), X
-            asl A
-            asl A
-            asl A
-            sta cmd_start
+        // prepare an address
+        stx cmd_addr+0
+        lda #page
+        asl cmd_addr+0
+        rol A
+        asl cmd_addr+0
+        rol A
+        asl cmd_addr+0
+        rol A
+        ora cur_nametable_page
+        sta cmd_addr+1
 
-            cmd_tile_cache_writeback()
+        tya
+        bit count_mask_zp
+        if (zero)
+        {
+            cmd_tile_clear()
+            jmp finish_finished
+        }
+        
+        and #CACHED_MASK
+        if (zero)
+        {
+            cmd_tile_copy()
+            jmp finish_finished
+        }
 
-            jmp done_flush_tile
+        // write from cache
+        lda cache_map+(page*0x100), X
+        asl A
+        asl A
+        asl A
+        sta cmd_start
+        cmd_tile_cache_write()
 
- check_other_frame:
-        bit other_frame_mask
-        beq done_flush_tile
-
-flush_tile_other_frame:
-            eor other_frame_mask
-            sta tile_status+(page*0x100), X
-            and #COUNT_MASK
-            tay
-
-            stx cmd_addr+0
-            lda #page
-            asl cmd_addr+0
-            rol A
-            asl cmd_addr+0
-            rol A
-            asl cmd_addr+0
-            rol A
-            ora cur_nametable_page
-            sta cmd_addr+1
-
-            cpy #0
-            if (zero)
-            {
-                cmd_tile_clear()
-            }
-            else
-            {
-                cmd_tile_copy()
-            }
-done_flush_tile:
-
+finish_finished:
         ldx tmp_byte2
-    } while (not zero)
+
+no_finish_needed:
+
+        cpx #0
+    } while (not equal)
 }
 
 function tracktiles_finish_frame()
@@ -163,24 +155,77 @@ function tracktiles_finish_frame()
 
 
 // Y:X have block #
-inline add_prim(clean_noprev, clean_prev, dirty_noprev, dirty_prev, update_cache, add_cache)
+inline add_prim()
 {
-    cpy #0
-    if (equal) {
-        add_prim_0(0, clean_noprev, clean_prev, dirty_noprev, dirty_prev, update_cache, add_cache)
-        rts
-    } else {
-        add_prim_0(0x100, clean_noprev, clean_prev, dirty_noprev, dirty_prev, update_cache, add_cache)
+    cpy #0  // last use of Y
+    if (equal)
+    {
+        add_prim_0(0)
     }
+
+    add_prim_0(0x100)
 }
 
-inline add_prim_0(page, clean_noprev, clean_prev, dirty_noprev, dirty_prev, update_cache, add_cache)
+inline add_prim_0(page)
 {
     lda tile_status+page, X
 
-    bit count_mask_rom
-    if (zero) {
+    bit this_frame_mask
+    bne add_update
+    ora this_frame_mask
 
+    bit other_frame_mask
+    bne add_copy
+
+add_update:
+    // TF || !OF
+    sta tile_status+page, X
+    inc tile_status+page, X
+
+    bit count_mask_zp
+    if (zero)
+    {
+        stx tmp_byte    // unmolested by cmd_set_lines
+
+        cmd_set_lines()
+
+        ldx tmp_byte
+
+        jmp try_add_cache
+    }
+
+    // not zero prims
+    bit cached_mask_zp
+    if (not zero)
+    {
+        // cached
+        ldy cache_map+page, X
+        tile_cache_update_set()
+
+        // write back only the changed lines
+        cmd_tile_cache_write_lines()
+        rts
+    }
+
+    // not cached
+    cmd_X_update_lines()
+    rts
+
+add_copy:
+    // !TF && OF
+    sta tile_status+page, X
+    inc tile_status+page, X
+
+    bit count_mask_zp
+    if (zero)
+    {
+        stx tmp_byte
+
+        cmd_set_all_lines()
+
+        ldx tmp_byte
+
+try_add_cache:
         ldy cache_map+page, X
         lda cache_used_idx, Y
         tay
@@ -189,177 +234,165 @@ inline add_prim_0(page, clean_noprev, clean_prev, dirty_noprev, dirty_prev, upda
         ldy cache_map+page, X
         and cache_used_mask, Y
 
-        if (zero) {
-            // set cached now, first prim, ignore dirty prev frame (blank)
-            lda #CACHED_MASK|1
-            ora this_frame_mask
-            sta tile_status+page, X
-
-            //
-            ldy cache_map+page, X
-            add_cache()
-            rts
-        }
-
-        lda tile_status+page, X
-        ora this_frame_mask
-        ora #1
-
-        bit other_frame_mask
-        if (not zero) {
-            eor other_frame_mask
-            sta tile_status+page, X
-
-            // set ok, tile is dirty
-            dirty_noprev()
-            rts
-        }
-
-        sta tile_status+page, X
-
-        // set ok, tile is clean
-        clean_noprev()
-        rts
-    }
-
-    // at least one prim already
-    ora this_frame_mask
-    clc
-    adc #1
-
-    bit cached_mask_rom
-    if (not zero) {
-        bit other_frame_mask
-        if (not zero)
+        if (zero)
         {
-            // never mind other frame, cache is up to date
-            eor other_frame_mask    
+            lda #CACHED_MASK
+            ora tile_status+page, X
+            sta tile_status+page, X
+
+            ldy cache_map+page, X
+            tile_cache_add_lines()
         }
-        sta tile_status+page, X
+        rts
+    }
 
-        //
+    // not zero prims
+    bit cached_mask_zp
+    if (not zero)
+    {
         ldy cache_map+page, X
-        update_cache()
+        tile_cache_update_set()
+
+        // write the whole block
+        cmd_tile_cache_write()
         rts
     }
 
-    bit other_frame_mask
-    if (not zero) {
-        eor other_frame_mask
-        sta tile_status+page, X
-
-        // copy needed, tile is dirty
-        dirty_prev()
-        rts
-    }
-
-    sta tile_status+page, X
-
-    // update needed, tile is clean
-    clean_prev()
+    // not cached
+    cmd_X_copy_all_lines()
     rts
 }
 
 // Y:X have block #
-inline remove_prim(clean_last, clean_notlast, dirty_last, dirty_notlast, update_cache, remove_cache)
+inline remove_prim()
 {
-    cpy #0
-    if (equal) {
-        remove_prim_0(0, clean_last, clean_notlast, dirty_last, dirty_notlast, update_cache, remove_cache)
-        rts
-    } else {
-        remove_prim_0(0x100, clean_last, clean_notlast, dirty_last, dirty_notlast, update_cache, remove_cache)
+    cpy #0  // last use of Y
+    if (equal)
+    {
+        remove_prim_0(0)
     }
+    remove_prim_0(0x100)
 }
 
-inline remove_prim_0(page, clean_last, clean_notlast, dirty_last, dirty_notlast, update_cache, remove_cache)
+inline remove_prim_0(page)
 {
     lda tile_status+page, X
-    ora this_frame_mask
 
     sec
     sbc #1
 
-    bit count_mask_rom
-    if (zero) {
-        bit cached_mask_rom
-        if (not zero) {
-            // ensure 'twill be cleared at end of frame
-            ora other_frame_mask
-
-            eor #CACHED_MASK    // clear the cache flag now
-            sta tile_status+page, X
-
-            //
-            ldy cache_map+page, X
-            remove_cache()
-            rts
-        }
-
-        bit other_frame_mask
-        if (not zero) {
-
-            eor other_frame_mask
-            sta tile_status+page, X
-
-            // clear ok, tile is dirty
-            dirty_last()
-            rts
-        }
-
-        sta tile_status+page, X
-
-        // clear ok, tile is clean
-        clean_last()
-        rts
-    }
-
-    // not down to zero prims
-
-    bit cached_mask_rom
-    if (not zero) {
-        bit other_frame_mask
-        if (not zero) {
-            // never mind other frame, cache is up to date
-            eor other_frame_mask    
-        }
-        sta tile_status+page,X
-
-        //
-        ldy cache_map+page, X
-        update_cache()
-        rts
-    }
+    bit this_frame_mask
+    bne remove_update
+    ora this_frame_mask
 
     bit other_frame_mask
-    if (not zero) {
-        eor other_frame_mask
-        sta tile_status+page, X
+    bne remove_copy
 
-        // copy needed, tile is dirty
-        dirty_notlast()
+remove_update:
+    // TF || !OF
+    sta tile_status+page, X
+
+    bit count_mask_zp
+    if (zero)
+    {
+        stx tmp_byte
+
+        cmd_clr_lines()
+
+        ldx tmp_byte
+        lda tile_status+page, X
+
+        bit cached_mask_zp
+        if (not zero)
+        {
+            eor #CACHED_MASK
+            sta tile_status+page, X
+
+            ldy cache_map+page, X
+            tile_cache_remove_lines()
+        }
+
         rts
     }
 
+    // not zero prims
+
+    bit cached_mask_zp
+    if (not zero)
+    {
+        ldy cache_map+page, X
+        tile_cache_update_clr()
+
+        cmd_tile_cache_write_lines()
+        rts
+    }
+
+    // not cached
+    cmd_X_update_lines()
+    rts
+
+remove_copy:
+    // !TF && OF
     sta tile_status+page, X
 
-    // update needed, tile is clean
-    clean_notlast()
+    bit count_mask_zp
+    if (zero)
+    {
+        stx tmp_byte
+
+        cmd_tile_clear()
+
+        ldx tmp_byte
+        lda tile_status+page, X
+
+        bit cached_mask_zp
+        if (not zero)
+        {
+            eor #CACHED_MASK
+            sta tile_status+page, X
+
+            ldy cache_map+page, X
+            tile_cache_remove_lines()
+        }
+
+        rts
+    }
+
+    // not zero prims
+
+    bit cached_mask_zp
+    if (not zero)
+    {
+        ldy cache_map+page, X
+        tile_cache_update_clr()
+
+        // write the whole block
+        cmd_tile_cache_write()
+        rts
+    }
+
+    // not cached
+
+    cmd_X_copy_all_lines()
     rts
 }
 
-
+// update cmd_start to with offset into tile_cache
 function tile_cache_update_set()
 {
-    //
+    ldx cmd_start
+
     tya
     asl A
     asl A
     asl A
     ora cmd_start
+    sta cmd_start
     tay
 
-    ldx cmd_start
+    lda cmd_lines
+    sta tmp_byte
+
     do {
         lda cmd_byte, X
         ora tile_cache, Y
@@ -367,21 +400,26 @@ function tile_cache_update_set()
         inx
         iny
 
-        dec cmd_lines
+        dec tmp_byte
     } while (not equal)
 }
 
+// update cmd_start to with offset into tile_cache
 function tile_cache_update_clr()
 {
-    //
+    ldx cmd_start
+
     tya
     asl A
     asl A
     asl A
     ora cmd_start
+    sta cmd_start
     tay
 
-    ldx cmd_start
+    lda cmd_lines
+    sta tmp_byte
+
     do {
         lda cmd_byte, X
         and tile_cache, Y
@@ -389,12 +427,12 @@ function tile_cache_update_clr()
         inx
         iny
 
-        dec cmd_lines
+        dec tmp_byte
     } while (not equal)
 }
 
 // Y: cache line
-function tile_cache_add()
+function tile_cache_add_lines()
 {
     lda cache_used_idx, Y
     tax
@@ -423,7 +461,7 @@ function tile_cache_add()
 }
 
 // Y: cache line
-function tile_cache_remove()
+function tile_cache_remove_lines()
 {
     lda cache_used_idx, Y
     tax
@@ -448,11 +486,6 @@ function tile_cache_remove()
         dex
     }
 }
-
-// a few handy values for BITs
-byte count_mask_rom[1] = {COUNT_MASK}
-byte cached_mask_rom[1] = {CACHED_MASK}
-byte set_v_rom[1] = {0x40|COUNT_MASK}
 
 byte cache_used_idx[31] = {
     0,0,0,0,0,0,0,0,

@@ -31,6 +31,8 @@ byte new_joypad0
 // tile status bits
 byte this_frame_mask
 byte other_frame_mask
+byte cached_mask_zp
+byte count_mask_zp
 
 byte cur_nametable_page
 
@@ -52,7 +54,8 @@ word dlist_next_byte
 word dlist_cmd_first_inst_addr
 byte dlist_cmd_first_inst_byte
 
-byte tile_cache_used[2] // 15 bits
+#define TILE_CACHE_USED_SIZE 2  // 15 bits
+byte tile_cache_used[TILE_CACHE_USED_SIZE]
 
 word cmd_addr
 byte cmd_start

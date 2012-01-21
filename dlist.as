@@ -319,6 +319,16 @@ inline add_inst_2()
     iny
 }
 
+inline add_inst_2_X(op,base)
+{
+    lda #op
+    sta [dlist_next_byte],Y
+    iny
+    lda base, X
+    sta [dlist_next_byte],Y
+    iny
+}
+
 inline add_inst_3_A_addr(addr)
 {
     sta [dlist_next_byte],Y
@@ -765,12 +775,60 @@ function cmd_set_lines()
 
     add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
 
-    do {
-        cmd_imm_sta_2007()    // 6 cycles, 5 bytes * lines
-        dec cmd_lines
-    } while (not zero)
+    ldx cmd_lines
+    lda cmd_set_lines_tab_0, X
+    sta tmp_addr+0
+    lda cmd_set_lines_tab_1, X
+    sta tmp_addr+1
+
+    txa
+    clc
+    adc cmd_start
+    tax
+
+    jmp [tmp_addr]
+
+ cmd_set_8_lines:
+    cmd_imm_2007_X(cmd_byte-8)    // 6 cycles, 5 bytes * lines
+ cmd_set_7_lines:
+    cmd_imm_2007_X(cmd_byte-7)
+ cmd_set_6_lines:
+    cmd_imm_2007_X(cmd_byte-6)
+ cmd_set_5_lines:
+    cmd_imm_2007_X(cmd_byte-5)
+ cmd_set_4_lines:
+    cmd_imm_2007_X(cmd_byte-4)
+ cmd_set_3_lines:
+    cmd_imm_2007_X(cmd_byte-3)
+ cmd_set_2_lines:
+    cmd_imm_2007_X(cmd_byte-2)
+ cmd_set_1_line:
+    cmd_imm_2007_X(cmd_byte-1)
 
     finalize_command()
+}
+
+byte cmd_set_lines_tab_0[9] = {
+    0,
+    lo(cmd_set_1_line),
+    lo(cmd_set_2_lines),
+    lo(cmd_set_3_lines),
+    lo(cmd_set_4_lines),
+    lo(cmd_set_5_lines),
+    lo(cmd_set_6_lines),
+    lo(cmd_set_7_lines),
+    lo(cmd_set_8_lines)
+}
+byte cmd_set_lines_tab_1[9] = {
+    0,
+    hi(cmd_set_1_line),
+    hi(cmd_set_2_lines),
+    hi(cmd_set_3_lines),
+    hi(cmd_set_4_lines),
+    hi(cmd_set_5_lines),
+    hi(cmd_set_6_lines),
+    hi(cmd_set_7_lines),
+    hi(cmd_set_8_lines)
 }
 
 // 12 + 3 * lines
@@ -827,12 +885,56 @@ function cmd_clr_lines()
     ldx #0
     add_inst_2()
 
-    do {
-        cmd_sta_2007()    // 4 cycles, 3 bytes * lines
-        dec cmd_lines
-    } while (not zero)
+    ldx cmd_lines
+    lda cmd_clr_lines_tab_0, X
+    sta tmp_addr+0
+    lda cmd_clr_lines_tab_1, X
+    sta tmp_addr+1
+
+    jmp [tmp_addr]
+
+ cmd_clr_8_lines:
+    cmd_sta_2007()  // 4 cycles, 3 bytes * lines
+ cmd_clr_7_lines:
+    cmd_sta_2007()
+ cmd_clr_6_lines:
+    cmd_sta_2007()
+ cmd_clr_5_lines:
+    cmd_sta_2007()
+ cmd_clr_4_lines:
+    cmd_sta_2007()
+ cmd_clr_3_lines:
+    cmd_sta_2007()
+ cmd_clr_2_lines:
+    cmd_sta_2007()
+ cmd_clr_1_line:
+    cmd_sta_2007()
 
     finalize_command()
+}
+
+byte cmd_clr_lines_tab_0[9] = {
+    0,
+    lo(cmd_clr_1_line),
+    lo(cmd_clr_2_lines),
+    lo(cmd_clr_3_lines),
+    lo(cmd_clr_4_lines),
+    lo(cmd_clr_5_lines),
+    lo(cmd_clr_6_lines),
+    lo(cmd_clr_7_lines),
+    lo(cmd_clr_8_lines)
+}
+
+byte cmd_clr_lines_tab_1[9] = {
+    0,
+    hi(cmd_clr_1_line),
+    hi(cmd_clr_2_lines),
+    hi(cmd_clr_3_lines),
+    hi(cmd_clr_4_lines),
+    hi(cmd_clr_5_lines),
+    hi(cmd_clr_6_lines),
+    hi(cmd_clr_7_lines),
+    hi(cmd_clr_8_lines)
 }
 
 // 18 + 7 * lines + 5 * (8-lines)
@@ -1044,13 +1146,9 @@ inline cmd_X_2007(src)
     add_inst_2()
 }
 
-inline cmd_imm_2007(src)
+inline cmd_imm_2007_X(src)
 {
-    ldx cmd_start
-    lda (src), X
-    tax
-    lda #$A9    // lda imm: 2 cycles, 2 bytes
-    add_inst_2()
+    add_inst_2_X($A9, src)  // lda imm: 2 cycles, 2 bytes
 
     add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
 }
@@ -1089,19 +1187,6 @@ inline cmd_2007_maybe_Y_lda_A_2007_sta(src)
     add_inst_3_A_addr($2007)
 }
 
-inline cmd_imm_sta_2007()
-{
-    ldx cmd_start
-    lda cmd_byte, X
-    inx
-    stx cmd_start
-    tax
-    lda #$A9    // lda imm: 2 cycles, 2 bytes
-    add_inst_2()
-
-    add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
-}
-
 inline cmd_sta_2007()
 {
     add_inst_3_addr($8D,$2007)  // sta abs: 4 cycles, 3 bytes
@@ -1121,10 +1206,8 @@ function cmd_tile_clear()
     ldx #0
     add_inst_2_first()
 
-    lda cmd_addr+0
-    and #~7
-    tax
     lda #$A0    // ldy imm: 2 cycles, 2 bytes
+    ldx cmd_addr+0
     add_inst_2()
 
     lda #$A2    // ldx imm: 2 cycles, 2 bytes
@@ -1161,7 +1244,7 @@ function cmd_tile_copy()
 }
 
 // cmd_start = cache address
-function cmd_tile_cache_writeback()
+function cmd_tile_cache_write()
 {
     ldx #50
     ldy #60
@@ -1180,14 +1263,121 @@ function cmd_tile_cache_writeback()
     add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
     add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
 
-    cmd_imm_2007(tile_cache+0)  // 6 cycles, 5 bytes * 8
-    cmd_imm_2007(tile_cache+1)
-    cmd_imm_2007(tile_cache+2)
-    cmd_imm_2007(tile_cache+3)
-    cmd_imm_2007(tile_cache+4)
-    cmd_imm_2007(tile_cache+5)
-    cmd_imm_2007(tile_cache+6)
-    cmd_imm_2007(tile_cache+7)
+    lda cmd_start
+    and #~7
+    tax
+
+    cmd_imm_2007_X(tile_cache+0)  // 6 cycles, 5 bytes * 8
+    cmd_imm_2007_X(tile_cache+1)
+    cmd_imm_2007_X(tile_cache+2)
+    cmd_imm_2007_X(tile_cache+3)
+    cmd_imm_2007_X(tile_cache+4)
+    cmd_imm_2007_X(tile_cache+5)
+    cmd_imm_2007_X(tile_cache+6)
+    cmd_imm_2007_X(tile_cache+7)
 
     finalize_command()
+}
+
+byte cmd_tile_cache_write_lines_bytes[8] = {
+    10 + (5*1),
+    10 + (5*2),
+    10 + (5*3),
+    10 + (5*4),
+    10 + (5*5),
+    10 + (5*6),
+    10 + (5*7),
+    10 + (5*8)
+}
+
+byte cmd_tile_cache_write_lines_cycles[8] = {
+    12 + (6*1),
+    12 + (6*2),
+    12 + (6*3),
+    12 + (6*4),
+    12 + (6*5),
+    12 + (6*6),
+    12 + (6*7),
+    12 + (6*8)
+}
+
+// cmd_start = cache address
+function cmd_tile_cache_write_lines()
+{
+    ldx cmd_lines
+    lda cmd_tile_cache_write_lines_bytes-1, X
+    sta cmd_size
+    lda cmd_tile_cache_write_lines_cycles-1, X
+    sta cmd_cycles
+    check_for_space_and_cycles()
+
+    lda cmd_start
+    and #7
+    ora cmd_addr+0
+    tax
+    lda #$A0    // ldy imm: 2 cycles, 2 bytes
+    add_inst_2_first()
+
+    lda #$A2    // ldx imm: 2 cycles, 2 bytes
+    ldx cmd_addr+1
+    add_inst_2()
+
+    add_inst_3_addr($8E,$2006)  // stx abs: 4 cycles, 3 bytes
+    add_inst_3_addr($8C,$2006)  // sty abs: 4 cycles, 3 bytes
+
+    ldx cmd_lines
+    lda cmd_cache_write_lines_tab_0, X
+    sta tmp_addr+0
+    lda cmd_cache_write_lines_tab_1, X
+    sta tmp_addr+1
+
+    txa
+    clc
+    adc cmd_start
+    tax
+
+    jmp [tmp_addr]
+
+ cmd_cache_write_8_lines:
+    cmd_imm_2007_X(tile_cache-8)  // 6 cycles, 5 bytes * 8
+ cmd_cache_write_7_lines:
+    cmd_imm_2007_X(tile_cache-7)
+ cmd_cache_write_6_lines:
+    cmd_imm_2007_X(tile_cache-6)
+ cmd_cache_write_5_lines:
+    cmd_imm_2007_X(tile_cache-5)
+ cmd_cache_write_4_lines:
+    cmd_imm_2007_X(tile_cache-4)
+ cmd_cache_write_3_lines:
+    cmd_imm_2007_X(tile_cache-3)
+ cmd_cache_write_2_lines:
+    cmd_imm_2007_X(tile_cache-2)
+ cmd_cache_write_1_line:
+    cmd_imm_2007_X(tile_cache-1)
+
+    finalize_command()
+}
+
+byte cmd_cache_write_lines_tab_0[9] = {
+    0,
+    lo(cmd_cache_write_1_line),
+    lo(cmd_cache_write_2_lines),
+    lo(cmd_cache_write_3_lines),
+    lo(cmd_cache_write_4_lines),
+    lo(cmd_cache_write_5_lines),
+    lo(cmd_cache_write_6_lines),
+    lo(cmd_cache_write_7_lines),
+    lo(cmd_cache_write_8_lines)
+}
+
+byte cmd_cache_write_lines_tab_1[9] = {
+    0,
+    hi(cmd_cache_write_1_line),
+    hi(cmd_cache_write_2_lines),
+    hi(cmd_cache_write_3_lines),
+    hi(cmd_cache_write_4_lines),
+    hi(cmd_cache_write_5_lines),
+    hi(cmd_cache_write_6_lines),
+    hi(cmd_cache_write_7_lines),
+    hi(cmd_cache_write_8_lines)
 }
