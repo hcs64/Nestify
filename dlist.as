@@ -1246,6 +1246,8 @@ function cmd_tile_copy()
 // cmd_start = cache address
 function cmd_tile_cache_write()
 {
+    inc_16(cache_hits)
+
     ldx #50
     ldy #60
     stx cmd_size
@@ -1304,6 +1306,8 @@ byte cmd_tile_cache_write_lines_cycles[8] = {
 // cmd_start = cache address
 function cmd_tile_cache_write_lines()
 {
+    inc_16(cache_hits)
+
     ldx cmd_lines
     lda cmd_tile_cache_write_lines_bytes-1, X
     sta cmd_size

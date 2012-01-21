@@ -80,6 +80,8 @@ word complete_vblanks
 // 0x56
 word stuck_cnt
 // 0x58
+word cache_hits
+// 0x5a
 byte highest_frame_time
 
 byte test_angle
