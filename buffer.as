@@ -44,41 +44,64 @@ function init_tracktiles()
     sta cached_mask_zp
 }
 
-function clear_screen()
-{
-    // TODO: this needs to be able to flush the cache as well
-    ldx #0
-    do {
-        lda tile_status, X
-        bit count_mask_zp
-        if (not zero)
-        {
-            lda #DIRTY_FRAME_0|DIRTY_FRAME_1
-            sta tile_status, X
-        }
-
-        dex
-    } while (not zero)
-
-    ldx #(TILES_WIDE*TILES_HIGH)-0x100
-    do {
-        lda tile_status+0x100-1, X
-        bit count_mask_zp
-        if (not zero) {
-            lda #DIRTY_FRAME_0|DIRTY_FRAME_1
-            sta tile_status+0x100-1, X
-        }
-        dex
-    } while (not zero)
-}
-
-inline tracktiles_finish_frame0(count, countdirop, page)
+inline clear_screen0(count, page)
 {
     ldx #count
     do {
-        countdirop
+        dex
 
-        lda tile_status+(page*0x100), X
+        lda tile_status+page, X
+        bit count_mask_zp
+        beq clr0_done
+
+        stx tmp_byte2
+
+        bit cached_mask_zp
+        if (not zero)
+        {
+            ldy cache_map+page, X
+            tile_cache_remove()
+
+            ldx tmp_byte2
+            lda tile_status+page, X
+        }
+
+        stx cmd_addr+0
+        lda #(page/0x100)
+        asl cmd_addr+0
+        rol A
+        asl cmd_addr+0
+        rol A
+        asl cmd_addr+0
+        rol A
+        ora cur_nametable_page
+        sta cmd_addr+1
+
+        cmd_tile_clear()
+
+        ldx tmp_byte2
+        lda this_frame_mask
+        sta tile_status+page, X
+
+ clr0_done:
+
+        cpx #0
+    } while (not equal)
+}
+
+function clear_screen()
+{
+    clear_screen0(0,0)
+    clear_screen0( (TILES_WIDE*TILES_HIGH)-100, 0x100)
+}
+
+inline tracktiles_finish_frame0(count, page)
+{
+    ldx #count
+    do {
+        dex
+
+        lda tile_status+page, X
 
         beq no_finish_needed
 
@@ -87,7 +110,7 @@ inline tracktiles_finish_frame0(count, countdirop, page)
         beq no_finish_needed
 
         eor other_frame_mask
-        sta tile_status+(page*0x100), X
+        sta tile_status+page, X
 
         // never need to update if it was touched already this frame
         bit this_frame_mask
@@ -98,7 +121,7 @@ inline tracktiles_finish_frame0(count, countdirop, page)
 
         // prepare an address
         stx cmd_addr+0
-        lda #page
+        lda #(page/0x100)
         asl cmd_addr+0
         rol A
         asl cmd_addr+0
@@ -124,7 +147,7 @@ inline tracktiles_finish_frame0(count, countdirop, page)
         }
 
         // write from cache
-        lda cache_map+(page*0x100), X
+        lda cache_map+page, X
         asl A
         asl A
         asl A
@@ -143,8 +166,8 @@ no_finish_needed:
 function tracktiles_finish_frame()
 {
     // update any stragglers from last frame, or cached dirties from this
-    tracktiles_finish_frame0(0,inx,0)
-    tracktiles_finish_frame0( (TILES_WIDE*TILES_HIGH)-0x100, dex, 1)
+    tracktiles_finish_frame0(0,0)
+    tracktiles_finish_frame0( (TILES_WIDE*TILES_HIGH)-0x100, 0x100)
 
     // swap masks
     lda this_frame_mask
@@ -458,6 +481,32 @@ function tile_cache_add_lines()
 
         dec cmd_lines
     } while (not equal)
+}
+
+// Y: cache line
+function tile_cache_remove()
+{
+    lda cache_used_idx, Y
+    tax
+    lda tile_cache_used, X
+
+    and cache_used_clr_mask, Y
+    sta tile_cache_used, X
+
+    //
+    tya
+    asl A
+    asl A
+    asl A
+    tay
+
+    lda #0
+    ldx #8
+    do {
+        sta tile_cache, Y
+        iny
+        dex
+    } while (not zero)
 }
 
 // Y: cache line
