@@ -92,7 +92,7 @@ inline clear_screen0(count, page)
 function clear_screen()
 {
     clear_screen0(0,0)
-    clear_screen0( (TILES_WIDE*TILES_HIGH)-100, 0x100)
+    clear_screen0( (TILES_WIDE*TILES_HIGH)-0x100, 0x100)
 }
 
 inline tracktiles_finish_frame0(count, page)
