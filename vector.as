@@ -320,8 +320,9 @@ inline bresenham_down_fcn(cmd_fcn, empty_row) {
     if (equal)
     {
         // is this block new already?
-        lda cmd_lines
-        if (not zero)
+        lda cmd_byte+7
+        cmp #empty_row
+        if (not equal)
         {
             // send this block
             ldx line_block+0
@@ -367,8 +368,9 @@ inline bresenham_up_fcn(cmd_fcn, empty_row) {
     if (minus)
     {
         // is this block new already?
-        lda cmd_lines
-        if (not zero)
+        lda cmd_byte
+        cmp #empty_row
+        if (not equal)
         {
             // send this block
             ldx line_block+0
