@@ -1,7 +1,7 @@
 #define TILES_WIDE 24
 #define TILES_HIGH 21
 
-#ram.org 0x0, 0x50
+#ram.org 0x0, 0x10
 
 pointer tmp_addr
 byte    tmp_byte
@@ -10,36 +10,26 @@ byte    tmp_byte3
 
 // only used by NMI after init
 shared byte _ppu_ctl0, _ppu_ctl1
+byte irq_temp
+byte nmi_temp
 
-// only set by NMI after init
-shared byte _joypad0
+// always set by NMI, use to check if ops could be interrupted
+byte nmi_hit
+#ram.end
 
-struct hold_count_joypad0
-{
-    byte RIGHT, LEFT, DOWN, UP, START, SELECT, A, B
-}
-struct repeat_count_joypad0
-{
-    byte RIGHT, LEFT, DOWN, UP, START, SELECT, A, B
-}
+#ram.org 0x10, 0x20
+// if we need space this can be put out of zero page with no extra cycle cost as
+// long as it doesn't cross a page boundary
+byte flip_nametable[0x20]
+#ram.end
 
-// main thread input tracking
-shared byte _joypad0_acc
-byte last_joypad0
-byte new_joypad0
-
+#ram.org 0x30, 0x88
 // tile status bits
 byte this_frame_mask
 byte other_frame_mask
 byte cached_mask_zp
 byte count_mask_zp
-
 byte cur_nametable_page
-
-// always set by NMI, use to check if ops could be interrupted
-byte nmi_hit
-byte irq_temp
-byte nmi_temp
 
 // small dlist stuff
 word dlist_cycles_left
@@ -54,9 +44,6 @@ word dlist_next_byte
 word dlist_cmd_first_inst_addr
 byte dlist_cmd_first_inst_byte
 
-#define TILE_CACHE_USED_SIZE 2  // 15 bits
-byte tile_cache_used[TILE_CACHE_USED_SIZE]
-
 word cmd_addr
 byte cmd_start
 byte cmd_lines
@@ -66,39 +53,12 @@ byte cmd_byte[8]
 // only check_for_space_and_cycles() uses these
 byte cmd_size   // reused for operation line range
 byte cmd_cycles
-#ram.end
 
-#ram.org 0x50, 0x10
-// 0x50
-shared byte frame_counter
-// 0x51
-byte last_frame_time
-// 0x52
-word incomplete_vblanks
-// 0x54
-word complete_vblanks
-// 0x56
-word stuck_cnt
-// 0x58
-word cache_hits
-// 0x5a
-byte highest_frame_time
+#define TILE_CACHE_USED_SIZE 4  // 31 bits
+#tell.bankoffset
+byte tile_cache_used[TILE_CACHE_USED_SIZE]
 
-byte test_angle
-byte test_speed
-byte test_count
-
-byte head_poly, tail_poly
-
-#ram.end
-
-#ram.org 0x60, 0x20
-// if we need space this can be put out of zero page with no extra cycle cost as
-// long as it doesn't cross a page boundary
-byte flip_nametable[0x20]
-#ram.end
-
-#ram.org 0x80, 0x11
+//
 byte line_x0
 byte line_y0
 byte line_x1
@@ -111,6 +71,22 @@ word line_block
 word line_err
 word line_err_strt
 word line_err_diag
+
+//
+byte head_poly, tail_poly
+
+#define NUM_POLYS 4
+#define POLY_WRAP_MASK %110000
+typedef struct point_s {
+    byte x, y, vx, vy
+}
+point_s points[4]
+
+typedef struct line_s {
+    byte x0, x1, y0, y1
+}
+line_s lines[4*NUM_POLYS]
+
 #ram.end
 
 #ram.org 0xD1, 0x2f
@@ -133,9 +109,9 @@ stack_end:
 #ram.end
 
 
-#ram.org 0x120, 0x420
+#ram.org 0x120, 0x3F0
 
-#define DLIST_SIZE 0x420
+#define DLIST_SIZE 0x3F0
 #define DLIST_WORST_CASE_SIZE (DLIST_SIZE-4)
 
 byte dlist_0[DLIST_SIZE]
@@ -143,24 +119,8 @@ byte dlist_0[DLIST_SIZE]
 
 #ram.end
 
-#ram.org 0x540, 0x50
-
-#define NUM_POLYS 4
-#define POLY_WRAP_MASK %110000
-typedef struct point_s {
-    byte x, y, vx, vy
-}
-point_s points[4]
-
-typedef struct line_s {
-    byte x0, x1, y0, y1
-}
-line_s lines[4*NUM_POLYS]
-
-#ram.end
-
-#ram.org 0x590, 0x78
-#define TILE_CACHE_SIZE (15*8)
+#ram.org 0x510, 0xF8
+#define TILE_CACHE_SIZE (31*8)
 byte tile_cache[TILE_CACHE_SIZE]
 #ram.end
 

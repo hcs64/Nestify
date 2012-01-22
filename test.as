@@ -19,9 +19,6 @@
 #include "blocks.as"
 #include "vector.as"
 
-#define HOLD_DELAY 12
-#define REPEAT_DELAY 3
-
 #interrupt.start    main
 #interrupt.irq      int_irq
 #interrupt.nmi      int_nmi
@@ -51,100 +48,9 @@ interrupt.nmi int_nmi()
 
     process_dlist()
 
-    /*
-    // a little perf bar
-
-    vram_set_address_i( (NAME_TABLE_0_ADDRESS + (25*32) + 4) )
-
-    lda last_frame_time
-    tax
-    sec
-    lda #48
-    sbc last_frame_time
-    tay
-    if (not carry)zero
-    {
-        ldx #48
-        ldy #0
-    }
-
-    dex
-    dex
-    bmi done_fill
-fill_loop:
-    lda #0xFD
-    dex
-    dex
-    bpl still_fill
-    lda #0xFC
-still_fill:
-    sta $2007
-    dex
-    dex
-    bpl fill_loop
-
-done_fill:
-    lda #0xFF
-    dey
-    dey
-    bmi perf_bar_done
-empty_loop:
-    sta $2007
-    dey
-    dey
-    bpl empty_loop
-perf_bar_done:
-    */
-
-    //
-    inc frame_counter
-
     // done with PPU stuff
     vram_clear_address()
     ppu_ctl1_assign(#CR_BACKVISIBLE)
-
-    // update controller once per frame
-    reset_joystick()
-    ldx #8
-    do {
-        lda JOYSTICK.CNT0
-        lsr A
-        if (carry)
-        {
-            php
-
-            ldy hold_count_joypad0-1, X
-            iny
-            cpy #HOLD_DELAY
-            if (not equal)
-            {
-                sty hold_count_joypad0-1, X
-            }
-            if (equal)
-            {
-                inc repeat_count_joypad0-1, X
-                if (equal)
-                {
-                    // saturate at 255
-                    dec repeat_count_joypad0-1, X
-                }
-            }
-
-            plp
-        }
-        if (not carry)
-        {
-            lda #0
-            sta hold_count_joypad0-1, X
-            sta repeat_count_joypad0-1, X
-        }
-        rol _joypad0
-        dex
-    } while (not zero)
-
-    lda _joypad0_acc
-    ora _joypad0
-    sta _joypad0_acc
 
     pla
     tay
@@ -168,8 +74,6 @@ inline system_initialize_custom()
 
     sta  _ppu_ctl0
     sta  _ppu_ctl1
-    sta  _joypad0
-    sta  _joypad0_acc
 
     sta  PPU.BG_SCROLL
     sta  PPU.BG_SCROLL
@@ -183,16 +87,9 @@ inline system_initialize_custom()
 
     // clear ZP
     lda #0
+    ldx #0
     do {
         sta 0x0, X
-        dex
-    } while (not zero)
-
-    // clear stats
-    lda #0
-    ldx #0x10
-    do {
-        sta 0x50, X
         dex
     } while (not zero)
 
@@ -231,92 +128,7 @@ interrupt.start noreturn main()
 
     // test begins
 
-    forever {
-        //fill_test()
-
-        mystify_test()
-
-        rotate_test()
-    }
-}
-
-function update_joypad()
-{
-    lda _joypad0_acc
-    tax
-    eor last_joypad0
-    stx last_joypad0
-    and _joypad0_acc
-    sta new_joypad0
-
-    lda #0
-    sta _joypad0_acc
-}
-
-function rotate_test()
-{
-    //lda #$23
-    lda #$e0
-    sta test_angle
-    lda #$6
-    sta test_speed
-
-    draw_triangle()
-
-    forever {
-        //clear_screen()
-
-        draw_square()
-
-        finish_frame()
-
-        clear_square()
-
-        // turn, turn, turn
-        update_joypad()
-
-        lda new_joypad0
-        and #BUTTON_SELECT
-        bne rotate_test_done
-
-        ldx #0
-        process_button(BUTTON_UP, repeat_count_joypad0.UP, -6)
-        process_button(BUTTON_DOWN, repeat_count_joypad0.DOWN, 6)
-        process_button(BUTTON_LEFT, repeat_count_joypad0.LEFT, -1)
-        process_button(BUTTON_RIGHT, repeat_count_joypad0.RIGHT, 1)
-
-        lda new_joypad0
-        and #BUTTON_START
-
-        if (not zero)
-        {
-            lda test_speed
-            if (zero)
-            {
-                lda #$6
-            }
-            else
-            {
-                lda #$0
-            }
-            sta test_speed
-        }
-
-        lda test_speed
-        if (not zero)
-        {
-            tax
-        }
-
-        txa
-        clc
-        adc test_angle
-        sta test_angle
-    }
-
-rotate_test_done:
-
-    clear_triangle()
+    mystify_test()
 }
 
 byte points_rom[] = {10,10,2,5, 160,100,-3,-7, 70,160,-6,-8, 100,35,2,-3}
@@ -342,236 +154,14 @@ function mystify_test()
 
     finish_frame()
 
-    lda #0
-    sta highest_frame_time
+    //lda #0
+    //sta highest_frame_time
 
     forever {
         clear_poly()
         draw_poly()
         finish_frame()
-
-        update_joypad()
-
-        lda new_joypad0
-        and #BUTTON_SELECT
-        bne mystify_test_done
     }
-
-mystify_test_done:
-
-    clear_screen()
-}
-
-function fill_test()
-{
-    forever {
-
-        lda #255
-        sta test_count
-
-        do {
-            lda #1
-            sta cmd_lines
-            lda #0
-            sta cmd_start
-            assign_16i(cmd_addr, 0x1000+(12*20*16))
-            lda #$FF
-            sta cmd_byte[0]
-            cmd_set_lines()
-
-            lda #1
-            sta cmd_lines
-            lda #0
-            sta cmd_start
-            assign_16i(cmd_addr, 0x1000+(12*20*16))
-            lda #$FF
-            sta cmd_byte[0]
-            cmd_set_lines()
-
-            lda #1
-            sta cmd_lines
-            lda #0
-            sta cmd_start
-            assign_16i(cmd_addr, 0x1000+(12*20*16))
-            lda #$FF
-            sta cmd_byte[0]
-            cmd_set_lines()
-
-            lda #1
-            sta cmd_lines
-            lda #0
-            sta cmd_start
-            assign_16i(cmd_addr, 0x1000+(12*20*16))
-            lda #$FF
-            sta cmd_byte[0]
-            cmd_tile_copy()
-
-            dec test_count
-        } while (not zero)
-
-        finish_frame()
-        finish_frame()
-    }
-}
-
-inline process_button(button_mask, button_repeat_count, delta)
-{
-    lda new_joypad0
-    and #button_mask
-    bne do_X_button
-
-    lda button_repeat_count
-    cmp #REPEAT_DELAY
-    bmi skip_X_button
-
-do_X_button:
-    ldx #delta
-    lda #0
-    sta button_repeat_count
-
-skip_X_button:
-}
-
-function clear_triangle() {
-    do_triangle(bresenham_clr)
-}
-function draw_triangle() {
-    do_triangle(bresenham_set)
-}
-function clear_square() {
-    do_square(bresenham_clr)
-}
-function draw_square() {
-    do_square(bresenham_set)
-}
-
-inline do_triangle(cmd_fcn)
-{
-    lda #1
-    tax
-    clc
-    adc #$55
-    tay
-
-    lda sintab, X
-    sta line_x0
-    lda sintab+$100, X
-    sta line_y0
-    lda sintab, Y
-    sta line_x1
-    lda sintab+$100, Y
-    sta line_y1
-    cmd_fcn()
-
-    lda #1
-    clc
-    adc #$55
-    tax
-    clc
-    adc #$55
-    tay
-
-    lda sintab, X
-    sta line_x0
-    lda sintab+$100, X
-    sta line_y0
-    lda sintab, Y
-    sta line_x1
-    lda sintab+$100, Y
-    sta line_y1
-    cmd_fcn()
-
-    lda #1
-    clc
-    adc #$aa
-    tax
-    clc
-    lda #1
-    //adc #$55
-    tay
-
-    lda sintab, X
-    sta line_x0
-    lda sintab+$100, X
-    sta line_y0
-    lda sintab, Y
-    sta line_x1
-    lda sintab+$100, Y
-    sta line_y1
-    cmd_fcn()
-}
-
-inline do_square(cmd_fcn)
-{
-    lda test_angle
-    tax
-    clc
-    adc #$40
-    tay
-
-    lda sintab, X
-    sta line_x0
-    lda sintab+$100, X
-    sta line_y0
-    lda sintab, Y
-    sta line_x1
-    lda sintab+$100, Y
-    sta line_y1
-    cmd_fcn()
-
-    lda test_angle
-    clc
-    adc #$40
-    tax
-    clc
-    adc #$40
-    tay
-
-    lda sintab, X
-    sta line_x0
-    lda sintab+$100, X
-    sta line_y0
-    lda sintab, Y
-    sta line_x1
-    lda sintab+$100, Y
-    sta line_y1
-    cmd_fcn()
-
-    lda test_angle
-    clc
-    adc #$80
-    tax
-    clc
-    adc #$40
-    tay
-
-    lda sintab, X
-    sta line_x0
-    lda sintab+$100, X
-    sta line_y0
-    lda sintab, Y
-    sta line_x1
-    lda sintab+$100, Y
-    sta line_y1
-    cmd_fcn()
-
-    lda test_angle
-    clc
-    adc #$C0
-    tax
-    clc
-    adc #$40
-    tay
-
-    lda sintab, X
-    sta line_x0
-    lda sintab+$100, X
-    sta line_y0
-    lda sintab, Y
-    sta line_x1
-    lda sintab+$100, Y
-    sta line_y1
-    cmd_fcn()
 }
 
 function draw_poly()
@@ -754,7 +344,6 @@ function init_vram()
     init_palette()
     init_attrs()
     init_names()
-    init_patterns()
 }
 
 function init_palette()
@@ -888,63 +477,4 @@ function init_names()
         } while (not zero)
         dex
     } while (not zero)
-
-    /*
-    // perf bar scale
-    vram_set_address_i( (NAME_TABLE_0_ADDRESS + (26*32) + 4) )
-    ldy #12
-    lda #0xFC
-    do {
-        vram_write_a()
-        dey
-    } while (not zero)
-    */
-}
-
-/******************************************************************************/
-
-byte half_on_block[8] = {$F0,$F0,$F0,$F0,$F0,$F0,$F0,$F0}
-byte on_block[8] = {$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF}
-
-function init_patterns()
-{
-    // fixed patterns
-    assign_16i(tmp_addr, half_on_block)
-    vram_set_address_i( (TILES_WIDE * TILES_HIGH * 8 ) )
-    ldx #2
-    unpack_patterns()
-
-    assign_16i(tmp_addr, half_on_block)
-    vram_set_address_i( ( (TILES_WIDE * TILES_HIGH * 8) + 0x1000 ) )
-    ldx #2
-    unpack_patterns()
-}
-
-function unpack_patterns()
-{
-    do {
-        ldy #0
-        do {
-            vram_write_ind_y(tmp_addr)
-            iny
-            cpy #8
-        } while (not equal)
-
-        ldy #8
-        lda #0
-        do {
-            vram_write_a()
-            dey
-        } while (not zero)
-
-        clc
-        lda #8
-        adc tmp_addr+0
-        sta tmp_addr+0
-        lda #0
-        adc tmp_addr+1
-        sta tmp_addr+1
-
-        dex
-    } while (not equal)
 }

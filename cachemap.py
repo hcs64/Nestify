@@ -15,8 +15,10 @@ for x in range(24):
         angle = atan2(rely, relx)
         dist = sqrt(relx*relx+rely*rely)
 
-        #cacheline = int((angle + pi)/(2*pi) * 15)
-
-        cacheline = (int(screenx/6)+int(screeny/5)*4) % 15
+        #cacheline = (int(screenx/6)+int(screeny/5)*4) % 15
+        #cacheline = (int(screenx/2)+int(screeny/2)*2) % 31
+        
+        #cacheline = (x+y*24)%31
+        cacheline = (screeny+screenx*21)%31
 
         outfile.write(pack("B", cacheline))

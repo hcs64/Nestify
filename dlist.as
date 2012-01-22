@@ -197,7 +197,7 @@ space_for_wrap:
 
 out_of_space:
 
-    inc_16(stuck_cnt)
+    //inc_16(stuck_cnt)
     
     wait_for_interruption()
 
@@ -472,12 +472,14 @@ inline process_dlist_complete()
         // back up to where the BRK was
         ldx #2
 
-        inc_16(incomplete_vblanks)
+        //inc_16(incomplete_vblanks)
     }
+    /*
     else
     {
         inc_16(complete_vblanks)
     }
+    */
     stx irq_temp
 
     pla
@@ -1246,8 +1248,6 @@ function cmd_tile_copy()
 // cmd_start = cache address
 function cmd_tile_cache_write()
 {
-    inc_16(cache_hits)
-
     ldx #50
     ldy #60
     stx cmd_size
@@ -1306,8 +1306,6 @@ byte cmd_tile_cache_write_lines_cycles[8] = {
 // cmd_start = cache address
 function cmd_tile_cache_write_lines()
 {
-    inc_16(cache_hits)
-
     ldx cmd_lines
     lda cmd_tile_cache_write_lines_bytes-1, X
     sta cmd_size

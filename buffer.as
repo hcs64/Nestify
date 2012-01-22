@@ -44,57 +44,6 @@ function init_tracktiles()
     sta cached_mask_zp
 }
 
-inline clear_screen0(count, page)
-{
-    ldx #count
-    do {
-        dex
-
-        lda tile_status+page, X
-        bit count_mask_zp
-        beq clr0_done
-
-        stx tmp_byte2
-
-        bit cached_mask_zp
-        if (not zero)
-        {
-            ldy cache_map+page, X
-            tile_cache_remove()
-
-            ldx tmp_byte2
-            lda tile_status+page, X
-        }
-
-        stx cmd_addr+0
-        lda #(page/0x100)
-        asl cmd_addr+0
-        rol A
-        asl cmd_addr+0
-        rol A
-        asl cmd_addr+0
-        rol A
-        ora cur_nametable_page
-        sta cmd_addr+1
-
-        cmd_tile_clear()
-
-        ldx tmp_byte2
-        lda this_frame_mask
-        sta tile_status+page, X
-
- clr0_done:
-
-        cpx #0
-    } while (not equal)
-}
-
-function clear_screen()
-{
-    clear_screen0(0,0)
-    clear_screen0( (TILES_WIDE*TILES_HIGH)-0x100, 0x100)
-}
-
 inline tracktiles_finish_frame0(count, page)
 {
     ldx #count
