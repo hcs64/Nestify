@@ -7,7 +7,6 @@ blocks.as \
 vector.as
 
 PREGEN = \
-sintab.bin \
 rangetab.bin \
 cachemap.bin
 

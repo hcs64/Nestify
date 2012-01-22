@@ -23,10 +23,6 @@
 #interrupt.irq      int_irq
 #interrupt.nmi      int_nmi
 
-#align 256
-sintab:
-#incbin "sintab.bin"
-
 interrupt.irq int_irq()
 {
     process_dlist_complete()
