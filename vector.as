@@ -249,6 +249,7 @@ function bresenham_common_setup()
 
     // y/8*8*2*12
     lda line_y0
+    tay
     and #~7
 
     // +8y
@@ -276,6 +277,11 @@ function bresenham_common_setup()
     lda tmp_byte
     adc line_block+1
     sta line_block+1
+
+    // only interested in the sub-block offset
+    tya
+    and #7
+    sta line_y0
 }
 
 inline bresenham_HNY(cmd_fcn, empty_row) {
@@ -308,12 +314,10 @@ inline bresenham_down_fcn(cmd_fcn, empty_row) {
     // move down a line
     ldx line_y0
     inx
-    stx line_y0
 
     // check if we're done with this block vertically
-    txa
-    and #7
-    if (zero)
+    cpx #8
+    if (equal)
     {
         // is this block new already?
         lda cmd_lines
@@ -327,10 +331,9 @@ inline bresenham_down_fcn(cmd_fcn, empty_row) {
         }
 
         // begin a new block
-        lda line_y0
-        and #7
-        sta cmd_start
-        tax
+        ldx #0
+        stx cmd_start
+        stx line_y0
         lda #1
         sta cmd_lines
 
@@ -346,8 +349,8 @@ inline bresenham_down_fcn(cmd_fcn, empty_row) {
     }
     else
     {
+        stx line_y0
         inc cmd_lines
-        tax
     }
 
     // start with an empty line
@@ -359,13 +362,9 @@ inline bresenham_up_fcn(cmd_fcn, empty_row) {
     // move up a line
     ldx line_y0
     dex
-    stx line_y0
 
     // check if we're done with this block vertically
-    txa
-    and #7
-    cmp #7
-    if (equal)
+    if (minus)
     {
         // is this block new already?
         lda cmd_lines
@@ -379,10 +378,9 @@ inline bresenham_up_fcn(cmd_fcn, empty_row) {
         }
 
         // begin a new block
-        lda line_y0
-        and #7
-        sta cmd_start
-        tax
+        ldx #7
+        stx cmd_start
+        stx line_y0
         lda #1
         sta cmd_lines
 
@@ -399,7 +397,7 @@ inline bresenham_up_fcn(cmd_fcn, empty_row) {
     {
         inc cmd_lines
         dec cmd_start
-        tax
+        stx line_y0
     }
 
     // start with an empty line
@@ -418,10 +416,8 @@ inline bresenham_H_common(cmd_fcn, empty_row, updown_fcn) {
     sta line_row
 
     // begin a new block
-    lda line_y0
-    and #7
-    sta cmd_start
-    tax
+    ldx line_y0
+    stx cmd_start
     lda #1
     sta cmd_lines
 
@@ -432,9 +428,7 @@ inline bresenham_H_common(cmd_fcn, empty_row, updown_fcn) {
     // do them columns
     forever {
         // plot!
-        lda line_y0
-        and #7
-        tax
+        ldx line_y0
         lda line_row
         eor cmd_byte, X
         sta cmd_byte, X
@@ -481,10 +475,8 @@ inline bresenham_H_common(cmd_fcn, empty_row, updown_fcn) {
             sta line_block+1
 
             // begin a new block
-            lda line_y0
-            and #7
-            sta cmd_start
-            tax
+            ldx line_y0
+            stx cmd_start
             lda #1
             sta cmd_lines
 
@@ -596,26 +588,22 @@ inline bresenham_V_common(cmd_fcn, wrap_check, pixel_pos_rom, rightleft_fcn, shi
     lda #0
     sta cmd_lines
     lda line_y0
-    and #7
     sta cmd_start
 
     // do them rows
     forever {
-        lda line_y0
-        tay
+        ldy line_y0
         iny
         sty line_y0
 
         // plot!
-        and #7
-        tax
         lda line_row
-        sta cmd_byte, X
+        sta cmd_byte-1, Y
 
         inc cmd_lines
 
         // check if we're done with this block vertically
-        cpx #7
+        cpy #8
         if (equal)
         {
             // yes, send it
@@ -633,8 +621,7 @@ inline bresenham_V_common(cmd_fcn, wrap_check, pixel_pos_rom, rightleft_fcn, shi
             // begin a new block
             lda #0
             sta cmd_lines
-            lda line_y0
-            and #7
+            sta line_y0
             sta cmd_start
 
             // move to next block down
@@ -688,7 +675,6 @@ inline bresenham_V_common(cmd_fcn, wrap_check, pixel_pos_rom, rightleft_fcn, shi
                     lda #0
                     sta cmd_lines
                     lda line_y0
-                    and #7
                     sta cmd_start
                 }
 
