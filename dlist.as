@@ -260,7 +260,7 @@ function finalize_dlist()
     // that would run up to the start of this command. We would then have a
     // "complete" dlist that consists only of this command. The termination
     // will be such that it is handled correctly, but it will waste a frame
-    // after doing only this one command.
+    // after doing only this one command. About 3 times in 5000 frames.
 
     // put a CLC over the old BRK
     ldy #0
@@ -403,13 +403,12 @@ inline add_inst_3_addr_first(byte0,addr)
     assign_16_16(dlist_cmd_first_inst_addr, dlist_next_byte)
 }
 
-// number of bytes in A, will perform inc and wrap on dlist_next_byte
+// number of bytes in A, will perform inc on dlist_next_byte
 inline advance_next_byte()
 {
     clc
     adc dlist_next_byte+0
     sta dlist_next_byte+0
-    tax
     lda #0
     adc dlist_next_byte+1
     sta dlist_next_byte+1
@@ -577,8 +576,7 @@ byte cmd_X_update_lines_cycles[8] = {
 function cmd_X_update_lines()
 {
     //
-    lda cmd_lines
-    tax
+    ldx cmd_lines
     lda cmd_X_update_lines_bytes-1, X
     sta cmd_size
     lda cmd_X_update_lines_cycles-1, X
@@ -603,23 +601,20 @@ function cmd_X_update_lines()
     // dummy read
     add_inst_3_addr($AD,$2007)  // lda abs: 4 cycles, 3 bytes
 
-    // jump table via rts
-    lda cmd_lines
-    asl A
-    tax
-    lda cmd_X_update_lines_jmp_tab_1, X
-    pha
+    ldx cmd_lines
     lda cmd_X_update_lines_jmp_tab_0, X
-    pha
-    rts
+    sta tmp_addr+0
+    lda cmd_X_update_lines_jmp_tab_1, X
+    sta tmp_addr+1
+    jmp [tmp_addr]
 
 //cmd_X_update_lines_8:
 //    cmd_X_2007_sta(zp_immed_0)  // 9 cycles, 7 bytes * lines
-cmd_X_update_lines_7:
+ cmd_X_update_lines_7:
     cmd_X_2007_sta(zp_immed_1)
-cmd_X_update_lines_6:
+ cmd_X_update_lines_6:
     cmd_X_2007_sta(zp_immed_2)
-cmd_X_update_lines_5:
+ cmd_X_update_lines_5:
     cmd_X_2007_sta(zp_immed_3)
 cmd_X_update_lines_4:
     cmd_X_2007_sta(zp_immed_4)
@@ -715,16 +710,28 @@ function cmd_X_update_lines_8()
     finalize_command()
 }
 
-byte cmd_X_update_lines_jmp_tab_0, cmd_X_update_lines_jmp_tab_1
-pointer cmd_X_update_lines_jmp_tab[8] = {
-    cmd_X_update_lines_1-1,
-    cmd_X_update_lines_2-1,
-    cmd_X_update_lines_3-1,
-    cmd_X_update_lines_4-1,
-    cmd_X_update_lines_5-1,
-    cmd_X_update_lines_6-1,
-    cmd_X_update_lines_7-1,
-    cmd_X_update_lines_8-1
+byte cmd_X_update_lines_jmp_tab_0[9] = {
+    0,
+    lo(cmd_X_update_lines_1),
+    lo(cmd_X_update_lines_2),
+    lo(cmd_X_update_lines_3),
+    lo(cmd_X_update_lines_4),
+    lo(cmd_X_update_lines_5),
+    lo(cmd_X_update_lines_6),
+    lo(cmd_X_update_lines_7),
+    lo(cmd_X_update_lines_8)
+}
+
+byte cmd_X_update_lines_jmp_tab_1[9] = {
+    0,
+    hi(cmd_X_update_lines_1),
+    hi(cmd_X_update_lines_2),
+    hi(cmd_X_update_lines_3),
+    hi(cmd_X_update_lines_4),
+    hi(cmd_X_update_lines_5),
+    hi(cmd_X_update_lines_6),
+    hi(cmd_X_update_lines_7),
+    hi(cmd_X_update_lines_8)
 }
 
 // 10 + 5 * lines
