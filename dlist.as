@@ -1,6 +1,6 @@
 // display list stuff
 
-#define MAX_VBLANK_CYCLES 2000
+#define MAX_VBLANK_CYCLES 2120
 
 // 62 cycles
 zp_writer_rom:
@@ -128,7 +128,14 @@ inline check_reset_cycles()
     lsr dlist_reset_cycles
     if (carry)
     {
-        assign_16i(dlist_cycles_left, MAX_VBLANK_CYCLES)
+        // reset, subtract time of last command that was never exposed
+        sec
+        lda #lo(MAX_VBLANK_CYCLES)
+        sbc last_cmd_cycles
+        sta dlist_cycles_left+0
+        lda #hi(MAX_VBLANK_CYCLES)
+        sbc #0
+        sta dlist_cycles_left+1
     }
 }
 
@@ -208,10 +215,14 @@ space_for_wrap:
 
 out_of_space:
 
-    //inc_16(stuck_cnt)
-    
     wait_for_interruption()
 
+    lda dlist_reset_cycles
+    if (not zero)
+    {
+        inc_16(stuck_cnt)
+    }
+    
     jmp check_for_space_and_cycles
 
 exactly_at_dlist_start:
@@ -248,6 +259,10 @@ inline finalize_command()
     lda #$0     // BRK
     tay
     sta [dlist_next_byte], Y
+
+    // no advance, we will be overwriting that BRK later
+    lda cmd_cycles
+    sta last_cmd_cycles
 }
 
 inline finalize_prev_command()
@@ -256,8 +271,6 @@ inline finalize_prev_command()
     ldy #$0
     lda dlist_cmd_first_inst_byte
     sta [dlist_cmd_first_inst_addr], Y
-
-    // no advance, we will be overwriting that BRK later
 }
 
 function finalize_dlist()
@@ -476,6 +489,9 @@ function sendchr_finish_frame()
 function process_dlist()
 {
     sec // flag to know whether we've run an incomplete dlist
+
+    ppu_ctl1_assign(#0) // disable rendering until we're done
+
     jmp dlist_start_jmp
 
     // this will ultimately be returned by an RTS in the IRQ handler
@@ -486,6 +502,9 @@ inline process_dlist_complete()
 {
     // get rid of saved flags
     pla
+
+    vram_clear_address()
+    ppu_ctl1_assign(#CR_BACKVISIBLE)    // reenable rendering
 
     // back up to one past the BRK, if this was a complete dlist
     ldx #1
@@ -499,14 +518,12 @@ inline process_dlist_complete()
         // back up to where the BRK was
         ldx #2
 
-        //inc_16(incomplete_vblanks)
+        inc_16(incomplete_vblanks)
     }
-    /*
     else
     {
         inc_16(complete_vblanks)
     }
-    */
     stx irq_temp
 
     pla
@@ -788,9 +805,7 @@ byte cmd_set_lines_cycles[8] = {
 
 function cmd_set_lines()
 {
-    //
-    lda cmd_lines
-    tax
+    ldx cmd_lines
     lda cmd_set_lines_bytes-1, X
     sta cmd_size
     lda cmd_set_lines_cycles-1, X
@@ -891,9 +906,7 @@ byte cmd_clr_lines_cycles[8] = {
 
 function cmd_clr_lines()
 {
-    //
-    lda cmd_lines
-    tax
+    ldx cmd_lines
     lda cmd_clr_lines_bytes-1, X
     sta cmd_size
     lda cmd_clr_lines_cycles-1, X

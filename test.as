@@ -37,7 +37,7 @@ interrupt.nmi int_nmi()
     pha
 
     lda PPU.STATUS
-    ppu_ctl1_assign(#0)
+    //ppu_ctl1_assign(#0)
 
     lda #1
     sta nmi_hit
@@ -45,8 +45,9 @@ interrupt.nmi int_nmi()
     process_dlist()
 
     // done with PPU stuff
-    vram_clear_address()
-    ppu_ctl1_assign(#CR_BACKVISIBLE)
+#tell.bankoffset
+    //vram_clear_address()
+    //ppu_ctl1_assign(#CR_BACKVISIBLE)
 
     pla
     tay

@@ -15,6 +15,10 @@ byte nmi_temp
 
 // always set by NMI, use to check if ops could be interrupted
 byte nmi_hit
+
+word incomplete_vblanks
+word complete_vblanks
+word stuck_cnt
 #ram.end
 
 #ram.org 0x10, 0x20
@@ -32,6 +36,7 @@ byte count_mask_zp
 byte cur_nametable_page
 
 // small dlist stuff
+#tell.bankoffset
 word dlist_cycles_left
 byte dlist_reset_cycles
 
@@ -53,9 +58,9 @@ byte cmd_byte[8]
 // only check_for_space_and_cycles() uses these
 byte cmd_size   // reused for operation line range
 byte cmd_cycles
+byte last_cmd_cycles
 
 #define TILE_CACHE_USED_SIZE 4  // 31 bits
-#tell.bankoffset
 byte tile_cache_used[TILE_CACHE_USED_SIZE]
 
 //
