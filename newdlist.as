@@ -96,18 +96,26 @@ function init_dlist()
 }
 
 // ******** execution
-function dlist_end_incomplete()
+function noreturn dlist_end_incomplete()
 {
+    vram_clear_address()
+    ppu_ctl1_assign(#CR_BACKVISIBLE)    // reenable rendering
+
     lda #1
     sta dlist_reset_cycles
 
     // back up
     tsx
     dex
-    dex
-    txs
+    stx dlist_next_cmd_read
 
-dlist_end_complete:
+    inc_16(incomplete_vblanks)
+
+    jmp dlist_end_common
+}
+
+function dlist_end_complete()
+{
     vram_clear_address()
     ppu_ctl1_assign(#CR_BACKVISIBLE)    // reenable rendering
 
@@ -115,6 +123,9 @@ dlist_end_complete:
     inx
     stx dlist_next_cmd_read
 
+    inc_16(complete_vblanks)
+
+dlist_end_common:
     sty dlist_data_read
 
     ldx dlist_cmd_end
