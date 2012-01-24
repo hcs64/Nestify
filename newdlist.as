@@ -338,12 +338,6 @@ function cmd_set_lines()
 
     add_command()
 
-    lda cmd_addr+1
-    sta dlist_data_0, X
-    lda cmd_addr+0
-    ora cmd_start
-    sta dlist_data_1, X
-
     ldy cmd_lines
     lda cmd_set_lines_jmptab_0, Y
     sta tmp_addr+0
@@ -356,7 +350,7 @@ function cmd_set_lines()
 
  cmd_set_8_lines:
     lda cmd_addr+0
-    sta dlist_data_0
+    sta dlist_data_0, X
 
     copy_byte_of_8(0)
     copy_byte_of_8(1)
@@ -386,7 +380,12 @@ function cmd_set_lines()
  cmd_set_1_line:
     copy_byte(0)
 
-#tell.bankoffset
+    lda cmd_addr+1
+    sta dlist_data_0, X
+    lda cmd_addr+0
+    ora cmd_start
+    sta dlist_data_1, X
+
     finalize_command_lines()
 }
 
