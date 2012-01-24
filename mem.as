@@ -10,7 +10,6 @@ byte    tmp_byte3
 
 // only used by NMI after init
 shared byte _ppu_ctl0, _ppu_ctl1
-byte irq_temp
 byte nmi_temp
 
 // always set by NMI, use to check if ops could be interrupted
@@ -36,18 +35,18 @@ byte count_mask_zp
 byte cur_nametable_page
 
 // small dlist stuff
-#tell.bankoffset
+byte dlist_next_cmd_read
+byte dlist_next_cmd_write
+byte dlist_cmd_end
+
 word dlist_cycles_left
 byte dlist_reset_cycles
 
-byte dlist_start_jmp
-word dlist_start
+word dlist_cmd_copy // nmi's local copy
+byte dlist_orig_S
 
-word dlist_write_limit // a copy of dlist_start, possibly old
-word dlist_next_byte
-
-word dlist_cmd_first_inst_addr
-byte dlist_cmd_first_inst_byte
+byte dlist_data_read
+byte dlist_data_write
 
 word cmd_addr
 byte cmd_start
