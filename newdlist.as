@@ -168,12 +168,6 @@ function finalize_dlist()
         ldy #lo(dlist)
     }
     sty dlist_next_cmd_write
-    sty dlist_cmd_end
-
-    do
-    {
-        cpy dlist_next_cmd_read
-    } while (equal)
 }
 
 // ******** command utils
@@ -186,6 +180,17 @@ function noreturn add_command()
     stx tmp_addr+1
 
 retry_add:
+    ldy dlist_next_cmd_write
+    cpy dlist_next_cmd_read
+    bne enough_space
+    cpy dlist_cmd_end
+    bne retry_add
+#tell.bankoffset
+    nop
+
+enough_space:
+    sty dlist_cmd_end
+
     // get cycle count
     ldy #0
 
@@ -216,9 +221,6 @@ retry_add:
         }
         sty dlist_next_cmd_write
 
-stuck_loop:
-        cpy dlist_next_cmd_read
-        beq stuck_loop
 
         ldx dlist_data_write
 
@@ -250,16 +252,13 @@ stuck_loop:
 }
 
 // X = data offset
-inline finalize_command(rows)
+inline cmd_advance(rows)
 {
     lda advancetab+( (rows-1)*0x100), X
     sta dlist_data_write
-
-    ldy dlist_next_cmd_write
-    sty dlist_cmd_end
 }
 
-inline finalize_command_lines()
+inline cmd_advance_lines()
 {
     ldy cmd_lines
     lda bytes_to_rows+2, Y
@@ -268,14 +267,20 @@ inline finalize_command_lines()
     ldy #0
     lda [tmp_addr], Y
     sta dlist_data_write
-
-    ldy dlist_next_cmd_write
-    sty dlist_cmd_end
 }
 
 inline store_address()
 {
     lda cmd_addr+1
+    sta dlist_data_0, X
+    lda cmd_addr+0
+    sta dlist_data_1, X
+}
+
+inline store_address_flip()
+{
+    ldy cmd_addr+1
+    lda flip_nametable, Y
     sta dlist_data_0, X
     lda cmd_addr+0
     sta dlist_data_1, X
@@ -301,7 +306,7 @@ function cmd_tile_clear()
 
     add_command()
     store_address()
-    finalize_command(1)
+    cmd_advance(1)
 }
 
 function cmd_tile_copy()
@@ -310,8 +315,8 @@ function cmd_tile_copy()
     ldx #hi(rt_copy_tile_cycles)
 
     add_command()
-    store_address()
-    finalize_command(1)
+    store_address_flip()
+    cmd_advance(1)
 }
 
 byte cmd_set_lines_tab_0[39] = { lo(rt_set_1_lines_cycles), lo(rt_set_2_lines_cycles), lo(rt_set_3_lines_cycles), lo(rt_set_4_lines_cycles), lo(rt_set_5_lines_cycles), lo(rt_set_6_lines_cycles), lo(rt_set_7_lines_cycles), lo(rt_set_8_lines_0_cycles), lo(rt_set_8_lines_1_cycles), lo(rt_set_8_lines_2_cycles), lo(rt_set_8_lines_3_cycles), lo(rt_set_8_lines_4_cycles), lo(rt_set_8_lines_5_cycles), lo(rt_set_8_lines_6_cycles), lo(rt_set_8_lines_7_cycles), lo(rt_set_8_lines_8_cycles), lo(rt_set_8_lines_9_cycles), lo(rt_set_8_lines_10_cycles), lo(rt_set_8_lines_11_cycles), lo(rt_set_8_lines_12_cycles), lo(rt_set_8_lines_13_cycles), lo(rt_set_8_lines_14_cycles), lo(rt_set_8_lines_15_cycles), lo(rt_set_8_lines_16_cycles), lo(rt_set_8_lines_17_cycles), lo(rt_set_8_lines_18_cycles), lo(rt_set_8_lines_19_cycles), lo(rt_set_8_lines_20_cycles), lo(rt_set_8_lines_21_cycles), lo(rt_set_8_lines_22_cycles), lo(rt_set_8_lines_23_cycles), lo(rt_set_8_lines_24_cycles), lo(rt_set_8_lines_25_cycles), lo(rt_set_8_lines_26_cycles), lo(rt_set_8_lines_27_cycles), lo(rt_set_8_lines_28_cycles), lo(rt_set_8_lines_29_cycles), lo(rt_set_8_lines_30_cycles), lo(rt_set_8_lines_31_cycles), }
@@ -358,7 +363,7 @@ function cmd_set_lines()
     copy_byte_of_8(6)
     copy_byte_of_8(7)
 
-    finalize_command(3)
+    cmd_advance(3)
 
     rts
 
@@ -383,7 +388,7 @@ function cmd_set_lines()
     ora cmd_start
     sta dlist_data_1, X
 
-    finalize_command_lines()
+    cmd_advance_lines()
 }
 
 byte cmd_set_lines_jmptab_0[9] = {
@@ -415,7 +420,16 @@ function cmd_tile_cache_write_lines() {}
 function cmd_X_update_lines() {}
 function cmd_X_copy_all_lines() {}
 function cmd_set_all_lines() {}
-function dlist_finish_frame() {}
+
+function dlist_finish_frame()
+{
+    /*
+    lda #lo(rt_finish_frame_cycles)
+    ldx #hi(rt_finish_frame_cycles)
+
+    add_command()
+    */
+}
 
 // ******** runtime command utils
 
@@ -488,3 +502,11 @@ inline cu_jmp_zpwr_lines(lines)
     jmp zp_writer+( (8-lines)*5)
 }
 
+byte rt_finish_frame_cycles[1] = {18}
+function rt_finish_frame()
+{
+    lda _ppu_ctl0
+    eor #CR_BACKADDR1000
+    sta _ppu_ctl0
+    sta $2000
+}
