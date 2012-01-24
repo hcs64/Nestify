@@ -121,6 +121,12 @@ function dlist_end_complete()
 
     tsx
     inx
+
+    if (equal)
+    {
+        ldx #lo(dlist)
+    }
+
     stx dlist_next_cmd_read
 
     inc_16(complete_vblanks)
@@ -432,12 +438,10 @@ function cmd_set_all_lines() {}
 
 function dlist_finish_frame()
 {
-    /*
     lda #lo(rt_finish_frame_cycles)
     ldx #hi(rt_finish_frame_cycles)
 
     add_command()
-    */
 }
 
 // ******** runtime command utils
