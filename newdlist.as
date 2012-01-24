@@ -196,8 +196,6 @@ retry_add:
     bne enough_space
     cpy dlist_cmd_end
     bne retry_add
-#tell.bankoffset
-    nop
 
 enough_space:
     sty dlist_cmd_end
@@ -465,11 +463,24 @@ inline cu_set_addr_prep(page)
 {
     cu_set_addr()
 
+    // half-set address for later
+    sta $2006
+
     // dummy read
     lda $2007
+}
 
-    // another set for the update
+// 26 cycles
+inline cu_set_addr_prep_flip(page)
+{
+    cu_set_addr()
+
+    // half-set address for later
+    eor #$10
     sta $2006
+
+    // dummy read
+    lda $2007
 }
 
 // 8 cycles

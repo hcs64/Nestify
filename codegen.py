@@ -123,10 +123,11 @@ for n in range(0,32):
 # copy & operate
 
 # special case to simply copy the whole tile
-print_cycles("rt_copy_tile", 151)
+print_cycles("rt_copy_tile", 149)
 print """function noreturn rt_copy_tile()
 {
-    cu_set_addr_prep()
+    cu_set_addr_prep_flip()
+
     cu_copy_line(0)
     cu_copy_line(1)
     cu_copy_line(2)
@@ -136,8 +137,7 @@ print """function noreturn rt_copy_tile()
     cu_copy_line(6)
     cu_copy_line(7)
 
-    lda flip_nametable, X
-    sta $2006
+    stx $2006
     cu_update_data_ptr(1)
     jmp zp_writer
 }\n"""
@@ -148,7 +148,7 @@ for length in range(1,8):
 
         print "inline ct_copy_X_%d_%d(op)\n{" % (start, end)
 
-        print "    cu_set_addr_prep()"
+        print "    cu_set_addr_prep_flip()"
         for i in range(8):
             if i >= start and i <= end:
                 print "    cu_updt_line(op, %s, %d)" % (line_to_offset(i-start), i)
@@ -156,16 +156,16 @@ for length in range(1,8):
                 print "    cu_copy_line(%d)" % i
 
 
-        print "    lda flip_nametable, X\n    sta $2006"
+        print "    stx $2006"
         print_udp(2+length)
         print "    jmp zp_writer\n}\n"
 
         name = "rt_copy_and_%d_%d" % (start, end)
-        print_cycles(name, 95+length*11+(8-length)*7)
+        print_cycles(name, 93+length*11+(8-length)*7)
         print "function noreturn %s() { ct_copy_X_%d_%d(and) }\n" % (name, start, end)
 
         name = "rt_copy_ora_%d_%d" % (start, end)
-        print_cycles(name, 95+length*11+(8-length)*7)
+        print_cycles(name, 93+length*11+(8-length)*7)
         print "function noreturn %s() { ct_copy_X_%d_%d(ora) }\n" % (name, start, end)
 
 
