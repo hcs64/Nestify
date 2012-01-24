@@ -94,8 +94,8 @@ line_s lines[4*NUM_POLYS]
 
 #ram.end
 
-#ram.org 0xD1, 0x2f
-byte zp_writer[7]   //      stx $2006 ; sty $2006 ; lda #
+#ram.org 0xD7, 0x29
+byte zp_writer[1]   //                  lda #
 byte zp_immed_0[5]  // NN ; sta $2007 ; lda #
 byte zp_immed_1[5]  // NN ; sta $2007 ; lda #
 byte zp_immed_2[5]  // NN ; sta $2007 ; lda #
@@ -113,14 +113,15 @@ byte stack[0x20]
 stack_end:
 #ram.end
 
+#ram.org 0x1B8, 0x48
+byte dlist[0x48]
+#ram.end
 
-#ram.org 0x120, 0x3F0
+#ram.org 0x200, 0x300
 
-#define DLIST_SIZE 0x3F0
-#define DLIST_WORST_CASE_SIZE (DLIST_SIZE-4)
-
-byte dlist_0[DLIST_SIZE]
-#define DLIST_LAST_CMD_START (dlist_0+DLIST_WORST_CASE_SIZE)
+byte dlist_data_0[0x100]
+byte dlist_data_1[0x100]
+byte dlist_data_2[0x100]
 
 #ram.end
 

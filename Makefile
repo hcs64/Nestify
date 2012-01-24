@@ -1,33 +1,42 @@
 SOURCES = \
 mem.as \
 test.as \
+newdlist.as \
 dlist.as \
 buffer.as \
 blocks.as \
 vector.as
 
 PREGEN = \
+advancetab.bin \
 rangetab.bin \
-cachemap.bin
+cachemap.bin \
+codegen.as
 
 IMAGES =
+
+NESHLA = neshla
+PYTHON = python
 
 EXE = test.nes
 
 $(EXE): $(SOURCES) $(IMAGES) $(PREGEN)
-	neshla test.as
+	$(NESHLA) test.as
 
 tell: $(SOURCES) $(IMAGES) $(PREGEN)
-	neshla test.as -tell
+	$(NESHLA) test.as -tell
 
-sintab.bin: sintab.py
-	./sintab.py
+advancetab.bin: advancetab.py
+	$(PYTHON) advancetab.py
 
 rangetab.bin: rangetab.py
-	./rangetab.py
+	$(PYTHON) rangetab.py
 
 cachemap.bin: cachemap.py
-	./cachemap.py
+	$(PYTHON) cachemap.py
+
+codegen.as: codegen.py
+	$(PYTHON) codegen.py > codegen.as
 
 clean:
 	rm -f test.nes $(PREGEN) log.txt

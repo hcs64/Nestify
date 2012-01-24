@@ -699,7 +699,7 @@ no_wrap:
 function finish_frame()
 {
     tracktiles_finish_frame()
-    sendchr_finish_frame()
+    dlist_finish_frame()
 
     /*
     lda frame_counter

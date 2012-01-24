@@ -4,7 +4,7 @@
 #ines.trainer       "no"
 #ines.fourscreen    "no"
 
-#rom.banksize 16K
+#rom.banksize 32K
 
 #include "nes.h"
 #include "std.h"
@@ -12,9 +12,9 @@
 #include "mem.as"
 
 #rom.bank BANK_MAIN_ENTRY
-#rom.org 0xC000
+#rom.org 0x8000
 
-#include "dlist.as"
+#include "newdlist.as"
 #include "buffer.as"
 #include "blocks.as"
 #include "vector.as"
@@ -25,7 +25,6 @@
 
 interrupt.irq int_irq()
 {
-    process_dlist_complete()
 }
 
 interrupt.nmi int_nmi()
@@ -45,7 +44,6 @@ interrupt.nmi int_nmi()
     process_dlist()
 
     // done with PPU stuff
-#tell.bankoffset
     //vram_clear_address()
     //ppu_ctl1_assign(#CR_BACKVISIBLE)
 
@@ -112,7 +110,7 @@ interrupt.start noreturn main()
 
     init_vram()
     init_tracktiles()
-    init_sendchr()
+    init_dlist()
     lda #0
     sta cur_nametable_page
 
