@@ -31,6 +31,21 @@ advancetab:
 rangetab:
 #incbin "rangetab.bin"
 
+#include "codegen.as"
+
+byte bytes_to_rows[10] = {
+    0,
+    hi(advancetab), //1 = 1
+    hi(advancetab), //2
+    hi(advancetab), //3
+    hi(advancetab+0x100),   // 4 = 2
+    hi(advancetab+0x100),   // 5
+    hi(advancetab+0x100),   // 6
+    hi(advancetab+0x200),   // 7 = 3
+    hi(advancetab+0x200),   // 8
+    hi(advancetab+0x200),   // 9
+}
+
 // ******** init
 function dlist_wrap()
 {
@@ -114,7 +129,6 @@ dlist_end_complete:
 
 function process_dlist()
 {
-#tell.bankoffset
     ppu_ctl1_assign(#0) // disable rendering
 
     ldx dlist_cmd_end
@@ -248,12 +262,38 @@ inline finalize_command(rows)
     sty dlist_cmd_end
 }
 
+inline finalize_command_lines()
+{
+    ldy cmd_lines
+    lda bytes_to_rows+2, Y
+    sta tmp_addr+1
+    stx tmp_addr+0
+    ldy #0
+    lda [tmp_addr], Y
+    sta dlist_data_write
+
+    ldy dlist_next_cmd_write
+    sty dlist_cmd_end
+}
+
 inline store_address()
 {
     lda cmd_addr+1
     sta dlist_data_0, X
     lda cmd_addr+0
     sta dlist_data_1, X
+}
+
+inline copy_byte_of_8(line)
+{
+    lda cmd_byte+line
+    sta dlist_data_0+( ( (1+line) - ( ( (1+line) / 3) * 3))*0x100)+( (1+line)/3), X
+}
+
+inline copy_byte(line)
+{
+    lda cmd_byte+line, Y
+    sta dlist_data_0+( ( (2+line) - ( ( (2+line) / 3) * 3))*0x100)+( (2+line)/3), X
 }
 
 // ******** commands
@@ -267,8 +307,112 @@ function cmd_tile_clear()
     finalize_command(1)
 }
 
-function cmd_tile_copy() {}
-function cmd_set_lines() {}
+function cmd_tile_copy()
+{
+    lda #lo(rt_copy_tile_cycles)
+    ldx #hi(rt_copy_tile_cycles)
+
+    add_command()
+    store_address()
+    finalize_command(1)
+}
+
+byte cmd_set_lines_tab_0[39] = { lo(rt_set_1_lines_cycles), lo(rt_set_2_lines_cycles), lo(rt_set_3_lines_cycles), lo(rt_set_4_lines_cycles), lo(rt_set_5_lines_cycles), lo(rt_set_6_lines_cycles), lo(rt_set_7_lines_cycles), lo(rt_set_8_lines_0_cycles), lo(rt_set_8_lines_1_cycles), lo(rt_set_8_lines_2_cycles), lo(rt_set_8_lines_3_cycles), lo(rt_set_8_lines_4_cycles), lo(rt_set_8_lines_5_cycles), lo(rt_set_8_lines_6_cycles), lo(rt_set_8_lines_7_cycles), lo(rt_set_8_lines_8_cycles), lo(rt_set_8_lines_9_cycles), lo(rt_set_8_lines_10_cycles), lo(rt_set_8_lines_11_cycles), lo(rt_set_8_lines_12_cycles), lo(rt_set_8_lines_13_cycles), lo(rt_set_8_lines_14_cycles), lo(rt_set_8_lines_15_cycles), lo(rt_set_8_lines_16_cycles), lo(rt_set_8_lines_17_cycles), lo(rt_set_8_lines_18_cycles), lo(rt_set_8_lines_19_cycles), lo(rt_set_8_lines_20_cycles), lo(rt_set_8_lines_21_cycles), lo(rt_set_8_lines_22_cycles), lo(rt_set_8_lines_23_cycles), lo(rt_set_8_lines_24_cycles), lo(rt_set_8_lines_25_cycles), lo(rt_set_8_lines_26_cycles), lo(rt_set_8_lines_27_cycles), lo(rt_set_8_lines_28_cycles), lo(rt_set_8_lines_29_cycles), lo(rt_set_8_lines_30_cycles), lo(rt_set_8_lines_31_cycles), }
+
+byte cmd_set_lines_tab_1[39] = { hi(rt_set_1_lines_cycles), hi(rt_set_2_lines_cycles), hi(rt_set_3_lines_cycles), hi(rt_set_4_lines_cycles), hi(rt_set_5_lines_cycles), hi(rt_set_6_lines_cycles), hi(rt_set_7_lines_cycles), hi(rt_set_8_lines_0_cycles), hi(rt_set_8_lines_1_cycles), hi(rt_set_8_lines_2_cycles), hi(rt_set_8_lines_3_cycles), hi(rt_set_8_lines_4_cycles), hi(rt_set_8_lines_5_cycles), hi(rt_set_8_lines_6_cycles), hi(rt_set_8_lines_7_cycles), hi(rt_set_8_lines_8_cycles), hi(rt_set_8_lines_9_cycles), hi(rt_set_8_lines_10_cycles), hi(rt_set_8_lines_11_cycles), hi(rt_set_8_lines_12_cycles), hi(rt_set_8_lines_13_cycles), hi(rt_set_8_lines_14_cycles), hi(rt_set_8_lines_15_cycles), hi(rt_set_8_lines_16_cycles), hi(rt_set_8_lines_17_cycles), hi(rt_set_8_lines_18_cycles), hi(rt_set_8_lines_19_cycles), hi(rt_set_8_lines_20_cycles), hi(rt_set_8_lines_21_cycles), hi(rt_set_8_lines_22_cycles), hi(rt_set_8_lines_23_cycles), hi(rt_set_8_lines_24_cycles), hi(rt_set_8_lines_25_cycles), hi(rt_set_8_lines_26_cycles), hi(rt_set_8_lines_27_cycles), hi(rt_set_8_lines_28_cycles), hi(rt_set_8_lines_29_cycles), hi(rt_set_8_lines_30_cycles), hi(rt_set_8_lines_31_cycles), }
+
+function cmd_set_lines()
+{
+    ldy cmd_lines
+    cpy #8
+    if (equal)
+    {
+        lda cmd_addr+1
+        clc
+        adc #8
+        tay
+    }
+
+    lda cmd_set_lines_tab_0-1, Y
+    ldx cmd_set_lines_tab_1-1, Y
+
+    add_command()
+
+    lda cmd_addr+1
+    sta dlist_data_0, X
+    lda cmd_addr+0
+    ora cmd_start
+    sta dlist_data_1, X
+
+    ldy cmd_lines
+    lda cmd_set_lines_jmptab_0, Y
+    sta tmp_addr+0
+    lda cmd_set_lines_jmptab_1, Y
+    sta tmp_addr+1
+
+    ldy cmd_start
+
+    jmp [tmp_addr]
+
+ cmd_set_8_lines:
+    lda cmd_addr+0
+    sta dlist_data_0
+
+    copy_byte_of_8(0)
+    copy_byte_of_8(1)
+    copy_byte_of_8(2)
+    copy_byte_of_8(3)
+    copy_byte_of_8(4)
+    copy_byte_of_8(5)
+    copy_byte_of_8(6)
+    copy_byte_of_8(7)
+
+    finalize_command(3)
+
+    rts
+
+ cmd_set_7_lines:
+    copy_byte(6)
+ cmd_set_6_lines:
+    copy_byte(5)
+ cmd_set_5_lines:
+    copy_byte(4)
+ cmd_set_4_lines:
+    copy_byte(3)
+ cmd_set_3_lines:
+    copy_byte(2)
+ cmd_set_2_lines:
+    copy_byte(1)
+ cmd_set_1_line:
+    copy_byte(0)
+
+#tell.bankoffset
+    finalize_command_lines()
+}
+
+byte cmd_set_lines_jmptab_0[9] = {
+    0,
+    lo(cmd_set_1_line),
+    lo(cmd_set_2_lines),
+    lo(cmd_set_3_lines),
+    lo(cmd_set_4_lines),
+    lo(cmd_set_5_lines),
+    lo(cmd_set_6_lines),
+    lo(cmd_set_7_lines),
+    lo(cmd_set_8_lines)
+}
+byte cmd_set_lines_jmptab_1[9] = {
+    0,
+    hi(cmd_set_1_line),
+    hi(cmd_set_2_lines),
+    hi(cmd_set_3_lines),
+    hi(cmd_set_4_lines),
+    hi(cmd_set_5_lines),
+    hi(cmd_set_6_lines),
+    hi(cmd_set_7_lines),
+    hi(cmd_set_8_lines)
+}
+
 function cmd_clr_lines() {}
 function cmd_tile_cache_write() {}
 function cmd_tile_cache_write_lines() {}
@@ -348,4 +492,3 @@ inline cu_jmp_zpwr_lines(lines)
     jmp zp_writer+( (8-lines)*5)
 }
 
-#include "codegen.as"
