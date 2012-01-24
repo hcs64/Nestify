@@ -169,6 +169,11 @@ function finalize_dlist()
     }
     sty dlist_next_cmd_write
     sty dlist_cmd_end
+
+    do
+    {
+        cpy dlist_next_cmd_read
+    } while (equal)
 }
 
 // ******** command utils
@@ -180,19 +185,7 @@ function noreturn add_command()
     sta tmp_addr+0
     stx tmp_addr+1
 
-add_loop:
-    // wait for space to free up
-    ldy dlist_next_cmd_write
-    cpy dlist_next_cmd_read
-    bne space_free
-    // if we're at the end, queue is empty
-    cpy dlist_cmd_end
-    bne add_loop
-
-space_free:
-
-    sty dlist_next_cmd_write
-
+retry_add:
     // get cycle count
     ldy #0
 
@@ -223,6 +216,10 @@ space_free:
         }
         sty dlist_next_cmd_write
 
+stuck_loop:
+        cpy dlist_next_cmd_read
+        beq stuck_loop
+
         ldx dlist_data_write
 
         rts
@@ -249,7 +246,7 @@ space_free:
     lda #0
     sta dlist_reset_cycles
 
-    jmp add_loop
+    jmp retry_add
 }
 
 // X = data offset
