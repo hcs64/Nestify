@@ -20,13 +20,7 @@ word complete_vblanks
 word stuck_cnt
 #ram.end
 
-#define TILE_CACHE_ELEMENTS 31
-#ram.org 0x10, 0x20
-byte tile_cache_list[TILE_CACHE_ELEMENTS]
-byte tile_cache_free_ptr
-#ram.end
-
-#ram.org 0x30, 0x88
+#ram.org 0x10, 0x80
 // tile status bits
 byte this_frame_mask
 byte other_frame_mask
@@ -49,8 +43,8 @@ byte dlist_data_write
 
 word cmd_addr
 byte cmd_start
+byte cmd_cache_start
 byte cmd_lines
-byte cmd_op
 byte cmd_byte[8]
 
 // only check_for_space_and_cycles() uses these
@@ -89,6 +83,12 @@ line_s lines[4*NUM_POLYS]
 
 #ram.end
 
+#define TILE_CACHE_ELEMENTS 38
+#ram.org 0x90, 0x40
+byte tile_cache_list[TILE_CACHE_ELEMENTS]
+byte tile_cache_free_ptr
+#ram.end
+
 #ram.org 0xD7, 0x29
 byte zp_writer[1]   //                  lda #
 byte zp_immed_0[5]  // NN ; sta $2007 ; lda #
@@ -114,15 +114,22 @@ byte dlist[0x48]
 
 #ram.org 0x200, 0x300
 
-byte dlist_data_0[0x100]
-byte dlist_data_1[0x100]
-byte dlist_data_2[0x100]
+byte dlist_data_0[0xDA]
+byte tile_cache_6[TILE_CACHE_ELEMENTS]
+byte dlist_data_1[0xDA]
+byte tile_cache_7[TILE_CACHE_ELEMENTS]
+byte dlist_data_2[0xDA]
+byte future_cache[TILE_CACHE_ELEMENTS]
 
 #ram.end
 
-#ram.org 0x510, 0xF8
-#define TILE_CACHE_SIZE (TILE_CACHE_ELEMENTS*8)
-byte tile_cache[TILE_CACHE_SIZE]
+#ram.org 0x500, 0xF8
+byte tile_cache_0[TILE_CACHE_ELEMENTS]
+byte tile_cache_1[TILE_CACHE_ELEMENTS]
+byte tile_cache_2[TILE_CACHE_ELEMENTS]
+byte tile_cache_3[TILE_CACHE_ELEMENTS]
+byte tile_cache_4[TILE_CACHE_ELEMENTS]
+byte tile_cache_5[TILE_CACHE_ELEMENTS]
 #ram.end
 
 #ram.org 0x608, 0x1F8
@@ -131,7 +138,7 @@ byte tile_cache[TILE_CACHE_SIZE]
 #define DIRTY_FRAME_0   0x40
 #define DIRTY_FRAME_1   0x20
 #define COUNT_MASK      0x1F
-#define CACHE_LINE_MASK 0x1F
+#define CACHE_LINE_MASK 0x7F
 
 byte tile_status[TILES_WIDE*TILES_HIGH]
 #ram.end

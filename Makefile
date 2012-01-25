@@ -3,7 +3,6 @@ mem.as \
 test.as \
 newdlist.as \
 buffer.as \
-blocks.as \
 vector.as
 
 PREGEN = \

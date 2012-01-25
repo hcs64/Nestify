@@ -308,16 +308,10 @@ inline copy_byte(line)
     sta dlist_data_0+( ( (2+line) - ( ( (2+line) / 3) * 3))*0x100)+( (2+line)/3), X
 }
 
-inline copy_cache_byte_of_8(line)
+inline copy_cache_byte_of_8(cache_page, line)
 {
-    lda tile_cache+line, Y
+    lda cache_page, Y
     sta dlist_data_0+( ( (1+line) - ( ( (1+line) / 3) * 3))*0x100)+( (1+line)/3), X
-}
-
-inline copy_cache_byte(line)
-{
-    lda tile_cache+line, Y
-    sta dlist_data_0+( ( (2+line) - ( ( (2+line) / 3) * 3))*0x100)+( (2+line)/3), X
 }
 
 // ******** commands
@@ -1072,117 +1066,21 @@ function cmd_tile_cache_write()
 
     add_command()
 
-    lda cmd_start
-    and #~7
-    tay
+    ldy cmd_cache_start
 
     lda cmd_addr+0
     sta dlist_data_0, X
 
-    copy_cache_byte_of_8(0)
-    copy_cache_byte_of_8(1)
-    copy_cache_byte_of_8(2)
-    copy_cache_byte_of_8(3)
-    copy_cache_byte_of_8(4)
-    copy_cache_byte_of_8(5)
-    copy_cache_byte_of_8(6)
-    copy_cache_byte_of_8(7)
+    copy_cache_byte_of_8(tile_cache_0, 0)
+    copy_cache_byte_of_8(tile_cache_1, 1)
+    copy_cache_byte_of_8(tile_cache_2, 2)
+    copy_cache_byte_of_8(tile_cache_3, 3)
+    copy_cache_byte_of_8(tile_cache_4, 4)
+    copy_cache_byte_of_8(tile_cache_5, 5)
+    copy_cache_byte_of_8(tile_cache_6, 6)
+    copy_cache_byte_of_8(tile_cache_7, 7)
 
     cmd_advance(3)
-}
-
-function cmd_tile_cache_write_lines()
-{
-    ldy cmd_lines
-    cpy #8
-    if (equal)
-    {
-        lda cmd_addr+1
-        clc
-        adc #8
-        tay
-    }
-
-    lda cmd_set_lines_tab_0-1, Y
-    ldx cmd_set_lines_tab_1-1, Y
-
-    add_command()
-
-    ldy cmd_lines
-    lda cmd_cache_write_lines_jmptab_0, Y
-    sta tmp_addr+0
-    lda cmd_cache_write_lines_jmptab_1, Y
-    sta tmp_addr+1
-
-    ldy cmd_start
-
-    jmp [tmp_addr]
-
- cmd_cache_set_8_lines:
-    lda cmd_start
-    and #7
-    ora cmd_addr+0
-    sta dlist_data_0, X
-
-    copy_cache_byte_of_8(0)
-    copy_cache_byte_of_8(1)
-    copy_cache_byte_of_8(2)
-    copy_cache_byte_of_8(3)
-    copy_cache_byte_of_8(4)
-    copy_cache_byte_of_8(5)
-    copy_cache_byte_of_8(6)
-    copy_cache_byte_of_8(7)
-
-    cmd_advance(3)
-
-    rts
-
- cmd_cache_set_7_lines:
-    copy_cache_byte(6)
- cmd_cache_set_6_lines:
-    copy_cache_byte(5)
- cmd_cache_set_5_lines:
-    copy_cache_byte(4)
- cmd_cache_set_4_lines:
-    copy_cache_byte(3)
- cmd_cache_set_3_lines:
-    copy_cache_byte(2)
- cmd_cache_set_2_lines:
-    copy_cache_byte(1)
- cmd_cache_set_1_line:
-    copy_cache_byte(0)
-
-    lda cmd_addr+1
-    sta dlist_data_0, X
-    lda cmd_start
-    and #7
-    ora cmd_addr+0
-    sta dlist_data_1, X
-
-    cmd_advance_lines()
-}
-
-byte cmd_cache_write_lines_jmptab_0[9] = {
-    0,
-    lo(cmd_cache_set_1_line),
-    lo(cmd_cache_set_2_lines),
-    lo(cmd_cache_set_3_lines),
-    lo(cmd_cache_set_4_lines),
-    lo(cmd_cache_set_5_lines),
-    lo(cmd_cache_set_6_lines),
-    lo(cmd_cache_set_7_lines),
-    lo(cmd_cache_set_8_lines)
-}
-byte cmd_cache_write_lines_jmptab_1[9] = {
-    0,
-    hi(cmd_cache_set_1_line),
-    hi(cmd_cache_set_2_lines),
-    hi(cmd_cache_set_3_lines),
-    hi(cmd_cache_set_4_lines),
-    hi(cmd_cache_set_5_lines),
-    hi(cmd_cache_set_6_lines),
-    hi(cmd_cache_set_7_lines),
-    hi(cmd_cache_set_8_lines)
 }
 
 function dlist_finish_frame()

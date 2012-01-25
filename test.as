@@ -16,7 +16,6 @@
 
 #include "newdlist.as"
 #include "buffer.as"
-#include "blocks.as"
 #include "vector.as"
 
 #interrupt.start    main

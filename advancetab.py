@@ -5,10 +5,13 @@ from struct import pack
 
 outfile = open("advancetab.bin", 'wb')
 
+capacity = 72*3+2
+max_cmd_size = 3
+
 for x in range(1,4):
     for y in range(0,256):
         val = y + x
-        if val+3 > 256:
+        if val+max_cmd_size > capacity:
             val = 0
 
         outfile.write(pack("B", val))
