@@ -324,7 +324,7 @@ inline copy_byte(line)
 
 inline copy_cache_byte_of_8(line)
 {
-    lda tile_cache, Y
+    lda tile_cache+line, Y
     sta dlist_data_0+( ( (1+line) - ( ( (1+line) / 3) * 3))*0x100)+( (1+line)/3), X
 }
 
@@ -1086,10 +1086,11 @@ function cmd_tile_cache_write()
 
     add_command()
 
-    ldy cmd_start
+    lda cmd_start
+    and #~7
+    tay
 
     lda cmd_addr+0
-    and #~7
     sta dlist_data_0, X
 
     copy_cache_byte_of_8(0)
