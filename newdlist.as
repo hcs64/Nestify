@@ -917,7 +917,6 @@ function cmd_copy_ora_all_lines()
 
  cmd_copy_ora_8_lines:
     lda cmd_addr+0
-    eor #$10
     sta dlist_data_0, X
 
     copy_byte_of_8(0)
