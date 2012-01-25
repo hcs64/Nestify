@@ -83,8 +83,8 @@ line_s lines[4*NUM_POLYS]
 
 #ram.end
 
-#define TILE_CACHE_ELEMENTS 38
-#ram.org 0x90, 0x40
+#define TILE_CACHE_ELEMENTS 64
+#ram.org 0x90, 0x41
 byte tile_cache_list[TILE_CACHE_ELEMENTS]
 byte tile_cache_free_ptr
 #ram.end
@@ -102,34 +102,34 @@ byte zp_immed_7[5]  // NN ; sta $2007 ; rts
 
 #ram.end
 
-#ram.org 0x100, 0x20
+#ram.org 0x100, 0x60
 // stack
 byte stack[0x20]
 stack_end:
+
+byte tile_cache_4[TILE_CACHE_ELEMENTS]
 #ram.end
 
-#ram.org 0x1B8, 0x48
-byte dlist[0x48]
+#ram.org 0x182, 0x7E
+byte dlist[0x7E]
 #ram.end
 
 #ram.org 0x200, 0x300
 
-byte dlist_data_0[0xDA]
+byte dlist_data_0[0xC0]
+byte tile_cache_5[TILE_CACHE_ELEMENTS]
+byte dlist_data_1[0xC0]
 byte tile_cache_6[TILE_CACHE_ELEMENTS]
-byte dlist_data_1[0xDA]
+byte dlist_data_2[0xC0]
 byte tile_cache_7[TILE_CACHE_ELEMENTS]
-byte dlist_data_2[0xDA]
-byte future_cache[TILE_CACHE_ELEMENTS]
 
 #ram.end
 
-#ram.org 0x500, 0xF8
+#ram.org 0x500, 0x100
 byte tile_cache_0[TILE_CACHE_ELEMENTS]
 byte tile_cache_1[TILE_CACHE_ELEMENTS]
 byte tile_cache_2[TILE_CACHE_ELEMENTS]
 byte tile_cache_3[TILE_CACHE_ELEMENTS]
-byte tile_cache_4[TILE_CACHE_ELEMENTS]
-byte tile_cache_5[TILE_CACHE_ELEMENTS]
 #ram.end
 
 #ram.org 0x608, 0x1F8

@@ -5,7 +5,7 @@ from struct import pack
 
 outfile = open("advancetab.bin", 'wb')
 
-capacity = 72*3+2
+capacity = 63*3+2
 max_cmd_size = 3
 
 for x in range(1,4):
