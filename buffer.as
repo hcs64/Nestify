@@ -1,5 +1,34 @@
 // mechanism for keeping track of double buffered tiles
 
+#align 256
+updaterangetab:
+#incbin "updaterange.bin"
+
+rangetab:
+#incbin "rangetab.bin"
+
+byte tile_cache_tab_0[8] = {
+    lo(tile_cache_0),
+    lo(tile_cache_1),
+    lo(tile_cache_2),
+    lo(tile_cache_3),
+    lo(tile_cache_4),
+    lo(tile_cache_5),
+    lo(tile_cache_6),
+    lo(tile_cache_7),
+}
+
+byte tile_cache_tab_1[8] = {
+    hi(tile_cache_0),
+    hi(tile_cache_1),
+    hi(tile_cache_2),
+    hi(tile_cache_3),
+    hi(tile_cache_4),
+    hi(tile_cache_5),
+    hi(tile_cache_6),
+    hi(tile_cache_7),
+}
+
 function init_tracktiles()
 {
     // clear
@@ -29,6 +58,7 @@ function init_tracktiles()
         sta tile_cache_5, X
         sta tile_cache_6, X
         sta tile_cache_7, X
+        sta tile_cache_dirty_range, X
     } while (not zero)
 
     // init free list
@@ -53,25 +83,26 @@ function init_tracktiles()
 inline tracktiles_finish_frame0(count, page)
 {
     ldx #count
-    do {
+
+finish_loop:
         dex
 
         lda tile_status+page, X
 
-        beq no_finish_needed
+        beq no_finish_halfway
 
         bmi finish_cache
 
         // never need to update if it wasn't touched previous frame
         bit other_frame_mask
-        beq no_finish_needed
+        beq no_finish_halfway
 
         eor other_frame_mask
         sta tile_status+page, X
 
         // never need to update if it was touched already this frame
         bit this_frame_mask
-        bne no_finish_needed
+        bne no_finish_halfway
 
         stx tmp_byte2
         tay
@@ -99,26 +130,21 @@ inline tracktiles_finish_frame0(count, page)
         cmd_tile_copy()
         jmp finish_finished
 
+no_finish_halfway:
+        cpx #0
+        bne finish_loop
+        jmp finish_loop_end
+
 finish_cache:
-        // TODO: range logic
 
         and #CACHE_LINE_MASK
         tay
         lda tile_cache_list, Y
+        
+        sta tmp_byte
 
-        bit other_frame_mask
-        beq no_clear_other
-
-        eor other_frame_mask
-        sta tile_cache_list, Y
-        jmp do_from_cache
-
-no_clear_other:
-
-        bit this_frame_mask
+        and #(DIRTY_FRAME_0|DIRTY_FRAME_1)
         beq no_finish_needed
-
-do_from_cache:
 
         stx tmp_byte2
 
@@ -135,7 +161,34 @@ do_from_cache:
         sta cmd_addr+1
 
         sty cmd_cache_start
+
+        lda tmp_byte
+        bit other_frame_mask
+        beq finish_cache_do_this_frame
+
+        // write the whole tile (needed due to other frame's activity)
+        eor other_frame_mask
+        sta tile_cache_list, Y
+
+        lda #0
+        sta tile_cache_dirty_range, Y
+
         cmd_tile_cache_write()
+        jmp finish_finished
+
+finish_cache_do_this_frame:
+        // write only lines touched in this frame
+
+        ldx tile_cache_dirty_range, Y
+        lda updaterangetab, X
+        sta cmd_lines
+        lda updaterangetab+0x100, X
+        sta cmd_start
+
+        lda #0
+        sta tile_cache_dirty_range, Y
+
+        cmd_tile_cache_write_lines()
 
 finish_finished:
         ldx tmp_byte2
@@ -143,7 +196,11 @@ finish_finished:
 no_finish_needed:
 
         cpx #0
-    } while (not equal)
+    beq finish_loop_end
+    jmp finish_loop
+
+finish_loop_end:
+    nop
 }
 
 function tracktiles_finish_frame()
@@ -221,19 +278,27 @@ inline add_prim_cached(page)
     bne add_cached_copy
 
 add_cached_update:
-    tile_cache_update_set()
 
     // write back only the changed lines
-    // TODO: set range
+    lda cmd_lines
+    asl A
+    asl A
+    asl A
+    ora cmd_start
+    tax
+    lda rangetab-8, X
+    ora tile_cache_dirty_range, Y
+    sta tile_cache_dirty_range, Y
+
+    tile_cache_update_set()
     rts
 
 add_cached_copy:
-    stx cmd_cache_start
+    // write the whole block
+    lda #$FF
+    sta tile_cache_dirty_range, Y
 
     tile_cache_update_set()
-
-    // write the whole block
-    // TODO: set range
     rts
 }
 
@@ -300,6 +365,16 @@ try_add_cache:
             and #(DIRTY_FRAME_0|DIRTY_FRAME_1)
             ora #1
             sta tile_cache_list, Y
+
+            // set dirty range
+            lda cmd_lines
+            asl A
+            asl A
+            asl A
+            ora cmd_start
+            tax
+            lda rangetab-8, X
+            sta tile_cache_dirty_range, Y
 
             tile_cache_add_lines()
         }
@@ -377,10 +452,27 @@ remove_cached_update:
 
     if (zero)
     {
-        // TODO: only clear active range
-        cmd_tile_clear()
+        // update dirty range with current clear
+        lda cmd_lines
+        asl A
+        asl A
+        asl A
+        ora cmd_start
+        tay
+        lda rangetab-8, Y
+        ora tile_cache_dirty_range, X
+        tay
+
+        // clear active range
+        lda updaterangetab, Y
+        sta cmd_lines
+        lda updaterangetab+0x100, Y
+        sta cmd_start
+
+        cmd_clr_lines()
 
 evict_from_cache:
+
         ldx tmp_byte
         lda tile_status+page, X
         and #CACHE_LINE_MASK
@@ -398,6 +490,9 @@ evict_from_cache:
 
         ldy tile_cache_free_ptr
 
+        lda #0
+        sta tile_cache_dirty_range, Y
+
         tile_cache_remove_lines()
 
         rts
@@ -405,9 +500,19 @@ evict_from_cache:
     
     txa
     tay
-    tile_cache_update_clr()
 
-    // TODO: set range
+    // mark updated lines
+    lda cmd_lines
+    asl A
+    asl A
+    asl A
+    ora cmd_start
+    tax
+    lda rangetab-8, X
+    ora tile_cache_dirty_range, Y
+    sta tile_cache_dirty_range, Y
+
+    tile_cache_update_clr()
 
     rts
 
@@ -428,11 +533,12 @@ remove_cached_copy:
 
     txa
     tay
-    sty cmd_cache_start
+
+    // update entire tile
+    lda #$FF
+    sta tile_cache_dirty_range, Y
 
     tile_cache_update_clr()
-
-    // TODO: set range
 
     rts
 
@@ -901,28 +1007,5 @@ byte tile_cache_remove_lines_jmptab_1[9] = {
     hi(tile_cache_remove_6_lines),
     hi(tile_cache_remove_7_lines),
     hi(tile_cache_remove),
-}
-
-#align 256
-byte tile_cache_tab_0[8] = {
-    lo(tile_cache_0),
-    lo(tile_cache_1),
-    lo(tile_cache_2),
-    lo(tile_cache_3),
-    lo(tile_cache_4),
-    lo(tile_cache_5),
-    lo(tile_cache_6),
-    lo(tile_cache_7),
-}
-
-byte tile_cache_tab_1[8] = {
-    hi(tile_cache_0),
-    hi(tile_cache_1),
-    hi(tile_cache_2),
-    hi(tile_cache_3),
-    hi(tile_cache_4),
-    hi(tile_cache_5),
-    hi(tile_cache_6),
-    hi(tile_cache_7),
 }
 

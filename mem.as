@@ -41,6 +41,7 @@ byte dlist_orig_S
 byte dlist_data_read
 byte dlist_data_write
 
+#tell.bankoffset
 word cmd_addr
 byte cmd_start
 byte cmd_cache_start
@@ -102,16 +103,17 @@ byte zp_immed_7[5]  // NN ; sta $2007 ; rts
 
 #ram.end
 
-#ram.org 0x100, 0x60
+#ram.org 0x100, 0xa0
 // stack
 byte stack[0x20]
 stack_end:
 
 byte tile_cache_4[TILE_CACHE_ELEMENTS]
+byte tile_cache_dirty_range[TILE_CACHE_ELEMENTS]
 #ram.end
 
-#ram.org 0x182, 0x7E
-byte dlist[0x7E]
+#ram.org 0x1a0, 0x60
+byte dlist[0x60]
 #ram.end
 
 #ram.org 0x200, 0x300
