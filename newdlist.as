@@ -28,9 +28,6 @@ zp_writer_rom_end:
 advancetab:
 #incbin "advancetab.bin"    // first 0x100 is +1, up to +3
 
-rangetab:
-#incbin "rangetab.bin"
-
 #include "codegen.as"
 
 byte bytes_to_rows[10] = {

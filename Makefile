@@ -7,7 +7,6 @@ vector.as
 
 PREGEN = \
 advancetab.bin \
-rangetab.bin \
 codegen.as
 
 IMAGES =
@@ -25,9 +24,6 @@ tell: $(SOURCES) $(IMAGES) $(PREGEN)
 
 advancetab.bin: advancetab.py
 	$(PYTHON) advancetab.py
-
-rangetab.bin: rangetab.py
-	$(PYTHON) rangetab.py
 
 codegen.as: codegen.py
 	$(PYTHON) codegen.py > codegen.as
