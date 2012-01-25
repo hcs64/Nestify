@@ -1,9 +1,5 @@
 // mechanism for keeping track of double buffered tiles
 
-#align 256
- cache_map:
-#incbin "cachemap.bin"
-
 function init_tracktiles()
 {
     // clear
@@ -22,17 +18,22 @@ function init_tracktiles()
         sta tile_status+0x100, X
     } while (not zero)
 
-    ldx #TILE_CACHE_USED_SIZE
-    do {
-        dex
-        sta tile_cache_used, X
-    } while (not zero)
-
     ldx #TILE_CACHE_SIZE
     do {
         dex
         sta tile_cache, X
     } while (not zero)
+
+    // init free list
+    sta tile_cache_free_ptr
+    ldx #TILE_CACHE_ELEMENTS-1
+    do {
+        txa
+        dex
+        sta tile_cache_list, X
+    } while (not zero)
+    lda #$FF
+    sta tile_cache_list+TILE_CACHE_ELEMENTS-1
 
     lda #DIRTY_FRAME_0
     sta this_frame_mask
@@ -40,8 +41,6 @@ function init_tracktiles()
     sta other_frame_mask
     lda #COUNT_MASK
     sta count_mask_zp
-    lda #CACHED_MASK
-    sta cached_mask_zp
 }
 
 inline tracktiles_finish_frame0(count, page)
@@ -81,6 +80,20 @@ inline tracktiles_finish_frame0(count, page)
         sta cmd_addr+1
 
         tya
+        if (minus)
+        {
+            // write from cache
+            and #CACHE_LINE_MASK
+            asl A
+            asl A
+            asl A
+            sta cmd_start
+
+            cmd_tile_cache_write()
+
+            jmp finish_finished
+        }
+
         bit count_mask_zp
         if (zero)
         {
@@ -88,20 +101,7 @@ inline tracktiles_finish_frame0(count, page)
             jmp finish_finished
         }
         
-        and #CACHED_MASK
-        if (zero)
-        {
-            cmd_tile_copy()
-            jmp finish_finished
-        }
-
-        // write from cache
-        lda cache_map+page, X
-        asl A
-        asl A
-        asl A
-        sta cmd_start
-        cmd_tile_cache_write()
+        cmd_tile_copy()
 
 finish_finished:
         ldx tmp_byte2
@@ -130,18 +130,61 @@ function tracktiles_finish_frame()
 inline add_prim()
 {
     cpy #0  // last use of Y
-    if (equal)
-    {
-        add_prim_0(0)
-    }
+    bne add_prim_100
+    lda tile_status, X
+    bmi add_cached_0
+    add_prim_0(0)
 
+add_cached_0:
+    add_prim_cached_0(0)
+
+add_prim_100:
+    lda tile_status+0x100, X
+    bmi add_cached_100
     add_prim_0(0x100)
+
+add_cached_100:
+    add_prim_cached_0(0x100)
+}
+
+inline add_prim_cached_0(page)
+{
+    // cached
+
+    // not zero prims (implicitly)
+
+    bit this_frame_mask
+    bne add_cached_update
+    ora this_frame_mask
+    sta tile_status+page, X
+
+    bit other_frame_mask
+    bne add_cached_copy
+
+add_cached_update:
+    and #CACHE_LINE_MASK
+    tax
+    inc tile_cache_list, X
+    tile_cache_update_set()
+
+    // write back only the changed lines
+    cmd_tile_cache_write_lines()
+    rts
+
+add_cached_copy:
+    and #CACHE_LINE_MASK
+    tax
+    inc tile_cache_list, X
+    
+    tile_cache_update_set()
+
+    // write the whole block
+    cmd_tile_cache_write()
+    rts
 }
 
 inline add_prim_0(page)
 {
-    lda tile_status+page, X
-
     bit this_frame_mask
     bne add_update
     ora this_frame_mask
@@ -167,19 +210,6 @@ add_update:
     }
 
     // not zero prims
-    bit cached_mask_zp
-    if (not zero)
-    {
-        // cached
-        ldy cache_map+page, X
-        tile_cache_update_set()
-
-        // write back only the changed lines
-        cmd_tile_cache_write_lines()
-        rts
-    }
-
-    // not cached
     cmd_ora_lines()
     rts
 
@@ -198,39 +228,29 @@ add_copy:
         ldx tmp_byte
 
 try_add_cache:
-        ldy cache_map+page, X
-        lda cache_used_idx, Y
-        tay
-        lda tile_cache_used, Y
-
-        ldy cache_map+page, X
-        and cache_used_mask, Y
-
-        if (zero)
+        ldy tile_cache_free_ptr
+        if (not minus)
         {
-            lda #CACHED_MASK
-            ora tile_status+page, X
+            lda tile_status+page, X
+            and #~CACHE_LINE_MASK
+            ora #CACHED_MASK
+            ora tile_cache_free_ptr
             sta tile_status+page, X
 
-            ldy cache_map+page, X
+            // point free list head at next
+            lda tile_cache_list, Y
+            sta tile_cache_free_ptr
+
+            // now use free list entry for prim count
+            lda #1
+            sta tile_cache_list, Y
+
             tile_cache_add_lines()
         }
         rts
     }
 
     // not zero prims
-    bit cached_mask_zp
-    if (not zero)
-    {
-        ldy cache_map+page, X
-        tile_cache_update_set()
-
-        // write the whole block
-        cmd_tile_cache_write()
-        rts
-    }
-
-    // not cached
     cmd_copy_ora_all_lines()
     rts
 }
@@ -239,17 +259,101 @@ try_add_cache:
 inline remove_prim()
 {
     cpy #0  // last use of Y
-    if (equal)
-    {
-        remove_prim_0(0)
-    }
+    bne remove_prim_100
+
+    lda tile_status, X
+    bmi remove_cached_0
+    remove_prim_0(0)
+
+remove_prim_100:
+    lda tile_status+0x100, X
+    bmi remove_cached_100
     remove_prim_0(0x100)
+
+remove_cached_0:
+    remove_prim_cached_0(0)
+
+remove_cached_100:
+    remove_prim_cached_0(0x100)
+}
+
+inline remove_prim_cached_0(page)
+{
+    stx tmp_byte
+
+    bit this_frame_mask
+    bne remove_cached_update
+    ora this_frame_mask
+    sta tile_status+page, X
+
+    bit other_frame_mask
+    bne remove_cached_copy
+
+remove_cached_update:
+
+    and #CACHE_LINE_MASK
+    tax
+
+    dec tile_cache_list, X
+
+    if (zero)
+    {
+        cmd_clr_lines()
+
+evict_from_cache:
+        ldx tmp_byte
+        lda tile_status+page, X
+        tay
+        and #CACHE_LINE_MASK
+        tax
+
+        // take it off the free list
+        lda tile_cache_free_ptr
+        sta tile_cache_list, X
+        stx tile_cache_free_ptr
+
+        tya
+        and #~(CACHED_MASK|CACHE_LINE_MASK)
+        ldx tmp_byte
+        sta tile_status+page, X
+
+        ldy tile_cache_free_ptr
+
+        tile_cache_remove_lines()
+
+        rts
+    }
+    
+    tile_cache_update_clr()
+
+    cmd_tile_cache_write_lines()
+
+    rts
+
+remove_cached_copy:
+
+    and #CACHE_LINE_MASK
+    tax
+
+    dec tile_cache_list, X
+
+    if (zero)
+    {
+        cmd_tile_clear()
+
+        jmp evict_from_cache
+    }
+
+    tile_cache_update_clr()
+
+    cmd_tile_cache_write()
+
+    rts
+
 }
 
 inline remove_prim_0(page)
 {
-    lda tile_status+page, X
-
     sec
     sbc #1
 
@@ -267,39 +371,12 @@ remove_update:
     bit count_mask_zp
     if (zero)
     {
-        stx tmp_byte
-
         cmd_clr_lines()
-
-        ldx tmp_byte
-        lda tile_status+page, X
-
-        bit cached_mask_zp
-        if (not zero)
-        {
-            eor #CACHED_MASK
-            sta tile_status+page, X
-
-            ldy cache_map+page, X
-            tile_cache_remove_lines()
-        }
 
         rts
     }
 
     // not zero prims
-
-    bit cached_mask_zp
-    if (not zero)
-    {
-        ldy cache_map+page, X
-        tile_cache_update_clr()
-
-        cmd_tile_cache_write_lines()
-        rts
-    }
-
-    // not cached
     cmd_and_lines()
     rts
 
@@ -310,65 +387,37 @@ remove_copy:
     bit count_mask_zp
     if (zero)
     {
-        stx tmp_byte
-
         cmd_tile_clear()
-
-        ldx tmp_byte
-        lda tile_status+page, X
-
-        bit cached_mask_zp
-        if (not zero)
-        {
-            eor #CACHED_MASK
-            sta tile_status+page, X
-
-            ldy cache_map+page, X
-            tile_cache_remove_lines()
-        }
 
         rts
     }
 
     // not zero prims
-
-    bit cached_mask_zp
-    if (not zero)
-    {
-        ldy cache_map+page, X
-        tile_cache_update_clr()
-
-        // write the whole block
-        cmd_tile_cache_write()
-        rts
-    }
-
-    // not cached
-
     cmd_copy_and_all_lines()
     rts
 }
 
-// update cmd_start to with offset into tile_cache
+// X: cache line
+// update cmd_start to offset into tile_cache
 function tile_cache_update_set()
 {
-    ldx cmd_start
+    ldy cmd_start
 
-    tya
+    txa
     asl A
     asl A
     asl A
     ora cmd_start
     sta cmd_start
-    tay
+    tax
 
     lda cmd_lines
     sta tmp_byte
 
     do {
-        lda cmd_byte, X
-        ora tile_cache, Y
-        sta tile_cache, Y
+        lda cmd_byte, Y
+        ora tile_cache, X
+        sta tile_cache, X
         inx
         iny
 
@@ -376,26 +425,28 @@ function tile_cache_update_set()
     } while (not equal)
 }
 
-// update cmd_start to with offset into tile_cache
+// X: cache page
+// update cmd_start to offset into tile_cache
 function tile_cache_update_clr()
 {
-    ldx cmd_start
+#tell.bankoffset
+    ldy cmd_start
 
-    tya
+    txa
     asl A
     asl A
     asl A
     ora cmd_start
     sta cmd_start
-    tay
+    tax
 
     lda cmd_lines
     sta tmp_byte
 
     do {
-        lda cmd_byte, X
-        and tile_cache, Y
-        sta tile_cache, Y
+        lda cmd_byte, Y
+        and tile_cache, X
+        sta tile_cache, X
         inx
         iny
 
@@ -406,13 +457,6 @@ function tile_cache_update_clr()
 // Y: cache line
 function tile_cache_add_lines()
 {
-    lda cache_used_idx, Y
-    tax
-    lda tile_cache_used, X
-
-    ora cache_used_mask, Y
-    sta tile_cache_used, X
-
     //
     tya
     asl A
@@ -435,13 +479,6 @@ function tile_cache_add_lines()
 // Y: cache line
 function tile_cache_remove()
 {
-    lda cache_used_idx, Y
-    tax
-    lda tile_cache_used, X
-
-    and cache_used_clr_mask, Y
-    sta tile_cache_used, X
-
     //
     tya
     asl A
@@ -461,13 +498,6 @@ function tile_cache_remove()
 // Y: cache line
 function tile_cache_remove_lines()
 {
-    lda cache_used_idx, Y
-    tax
-    lda tile_cache_used, X
-
-    and cache_used_clr_mask, Y
-    sta tile_cache_used, X
-
     //
     tya
     asl A
@@ -483,23 +513,4 @@ function tile_cache_remove_lines()
         iny
         dex
     }
-}
-
-byte cache_used_idx[31] = {
-    0,0,0,0,0,0,0,0,
-    1,1,1,1,1,1,1,1,
-    2,2,2,2,2,2,2,2,
-    3,3,3,3,3,3,3
-}
-byte cache_used_mask[31] = {
-    $80,$40,$20,$10,$08,$04,$02,$01,
-    $80,$40,$20,$10,$08,$04,$02,$01,
-    $80,$40,$20,$10,$08,$04,$02,$01,
-    $80,$40,$20,$10,$08,$04,$02
-}
-byte cache_used_clr_mask[31] = {
-    $7f,$bf,$df,$ef,$f7,$fb,$fd,$fe,
-    $7f,$bf,$df,$ef,$f7,$fb,$fd,$fe,
-    $7f,$bf,$df,$ef,$f7,$fb,$fd,$fe,
-    $7f,$bf,$df,$ef,$f7,$fb,$fd
 }

@@ -112,6 +112,7 @@ interrupt.start noreturn main()
     // turn everything on
     vblank_wait()
     vram_clear_address()
+    //ppu_ctl0_assign(#CR_NMI)
     ppu_ctl0_assign(#CR_NMI|CR_BACKADDR1000)
     //ppu_ctl1_assign(#CR_BACKVISIBLE|CR_SPRITESVISIBLE|CR_BACKNOCLIP|CR_SPRNOCLIP)
     ppu_ctl1_assign(#CR_BACKVISIBLE)

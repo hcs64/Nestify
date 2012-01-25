@@ -20,17 +20,16 @@ word complete_vblanks
 word stuck_cnt
 #ram.end
 
+#define TILE_CACHE_ELEMENTS 31
 #ram.org 0x10, 0x20
-// if we need space this can be put out of zero page with no extra cycle cost as
-// long as it doesn't cross a page boundary
-byte flip_nametable[0x20]
+byte tile_cache_list[TILE_CACHE_ELEMENTS]
+byte tile_cache_free_ptr
 #ram.end
 
 #ram.org 0x30, 0x88
 // tile status bits
 byte this_frame_mask
 byte other_frame_mask
-byte cached_mask_zp
 byte count_mask_zp
 byte cur_nametable_page
 
@@ -58,9 +57,6 @@ byte cmd_byte[8]
 byte cmd_size   // reused for operation line range
 byte cmd_cycles
 byte last_cmd_cycles
-
-#define TILE_CACHE_USED_SIZE 4  // 31 bits
-byte tile_cache_used[TILE_CACHE_USED_SIZE]
 
 //
 byte line_x0
@@ -125,16 +121,17 @@ byte dlist_data_2[0x100]
 #ram.end
 
 #ram.org 0x510, 0xF8
-#define TILE_CACHE_SIZE (31*8)
+#define TILE_CACHE_SIZE (TILE_CACHE_ELEMENTS*8)
 byte tile_cache[TILE_CACHE_SIZE]
 #ram.end
 
 #ram.org 0x608, 0x1F8
 
-#define DIRTY_FRAME_0   0x80
-#define DIRTY_FRAME_1   0x40
-#define CACHED_MASK     0x20
+#define CACHED_MASK     0x80
+#define DIRTY_FRAME_0   0x40
+#define DIRTY_FRAME_1   0x20
 #define COUNT_MASK      0x1F
+#define CACHE_LINE_MASK 0x1F
 
 byte tile_status[TILES_WIDE*TILES_HIGH]
 #ram.end

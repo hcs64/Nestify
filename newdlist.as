@@ -79,20 +79,6 @@ function init_dlist()
 
     // dlist wrap catcher
     assign_16i(0x100, dlist_wrap-1)
-
-    // fill flip_nametable
-    ldx #0x10
-    ldy #0
-    lda #0
-    clc
-    do {
-        tya
-        sta flip_nametable+0x10, Y
-        eor #0x10
-        sta flip_nametable, Y
-        iny
-        dex
-    } while (not zero)
 }
 
 // ******** execution
