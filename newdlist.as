@@ -1020,9 +1020,9 @@ pointer cmd_setclr_5_lines_tab[4] = {
 }
 
 pointer cmd_setclr_6_lines_tab[3] = {
-    rt_setclr_0_4_cycles,
-    rt_setclr_1_5_cycles,
-    rt_setclr_2_6_cycles,
+    rt_setclr_0_5_cycles,
+    rt_setclr_1_6_cycles,
+    rt_setclr_2_7_cycles,
 }
 
 pointer cmd_setclr_7_lines_tab[2] = {
