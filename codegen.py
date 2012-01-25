@@ -60,11 +60,10 @@ for n in range(1,9):
 # operate on N lines
 
 # special case for 1
-print """// 42 cycles
-inline ct_X_1_lines(op)
+print """inline ct_X_1_lines(op)
 {
-    cu_set_addr_prep(page)
-    cu_op_line(op, dlist_data_0+2)
+    cu_set_addr_prep()
+    cu_op_line(op, dlist_data_2)
 
     stx $2006
     sta $2007

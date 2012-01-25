@@ -384,6 +384,8 @@ function cmd_set_lines()
 
     ldy cmd_start
 
+    store_line_address()
+
     jmp [tmp_addr]
 
  cmd_set_8_lines:
@@ -417,8 +419,6 @@ function cmd_set_lines()
     copy_byte(1)
  cmd_set_1_line:
     copy_byte(0)
-
-    store_line_address()
 
     cmd_advance_lines()
 }
@@ -1074,6 +1074,8 @@ function noreturn cmd_set_all_lines()
 
     ldy cmd_start
 
+    store_address()
+
     jmp [tmp_addr]
 }
 
@@ -1224,7 +1226,7 @@ inline cu_set_addr()
 }
 
 // 24 cycles
-inline cu_set_addr_prep(page)
+inline cu_set_addr_prep()
 {
     cu_set_addr()
 
@@ -1236,7 +1238,7 @@ inline cu_set_addr_prep(page)
 }
 
 // 26 cycles
-inline cu_set_addr_prep_flip(page)
+inline cu_set_addr_prep_flip()
 {
     cu_set_addr()
 
