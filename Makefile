@@ -2,7 +2,6 @@ SOURCES = \
 mem.as \
 test.as \
 newdlist.as \
-dlist.as \
 buffer.as \
 blocks.as \
 vector.as
