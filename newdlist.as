@@ -214,7 +214,7 @@ enough_space:
     {
         sec
         lda #lo(MAX_VBLANK_CYCLES)
-        sbc (tmp_addr), Y
+        sbc [tmp_addr], Y
         sta dlist_cycles_left+0
         lda #hi(MAX_VBLANK_CYCLES)
         sbc #0
@@ -244,7 +244,7 @@ enough_space:
 
     sec
     lda dlist_cycles_left+0
-    sbc (tmp_addr), Y
+    sbc [tmp_addr], Y
     sta dlist_cycles_left+0
     lda dlist_cycles_left+1
     sbc #0
@@ -901,7 +901,6 @@ function cmd_copy_ora_all_lines()
         dey
         lda [tmp_addr], Y
     }
-#tell.bankoffset
 
     add_command()
 
@@ -1291,7 +1290,7 @@ inline cu_jmp_zpwr_lines(lines)
     jmp zp_writer+( (8-lines)*5)
 }
 
-byte rt_finish_frame_cycles[1] = {12}
+byte rt_finish_frame_cycles[1] = {18}
 function rt_finish_frame()
 {
     lda _ppu_ctl0
