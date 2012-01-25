@@ -692,9 +692,9 @@ pointer cmd_copy_and_5_lines_tab[4] = {
 }
 
 pointer cmd_copy_and_6_lines_tab[3] = {
-    rt_copy_and_0_4_cycles,
-    rt_copy_and_1_5_cycles,
-    rt_copy_and_2_6_cycles,
+    rt_copy_and_0_5_cycles,
+    rt_copy_and_1_6_cycles,
+    rt_copy_and_2_7_cycles,
 }
 
 pointer cmd_copy_and_7_lines_tab[2] = {
@@ -857,9 +857,9 @@ pointer cmd_copy_ora_5_lines_tab[4] = {
 }
 
 pointer cmd_copy_ora_6_lines_tab[3] = {
-    rt_copy_ora_0_4_cycles,
-    rt_copy_ora_1_5_cycles,
-    rt_copy_ora_2_6_cycles,
+    rt_copy_ora_0_5_cycles,
+    rt_copy_ora_1_6_cycles,
+    rt_copy_ora_2_7_cycles,
 }
 
 pointer cmd_copy_ora_7_lines_tab[2] = {
