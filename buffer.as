@@ -180,7 +180,7 @@ add_update:
     }
 
     // not cached
-    cmd_X_update_lines()
+    cmd_ora_lines()
     rts
 
 add_copy:
@@ -231,7 +231,7 @@ try_add_cache:
     }
 
     // not cached
-    cmd_X_copy_all_lines()
+    cmd_copy_ora_all_lines()
     rts
 }
 
@@ -300,7 +300,7 @@ remove_update:
     }
 
     // not cached
-    cmd_X_update_lines()
+    cmd_and_lines()
     rts
 
 remove_copy:
@@ -345,7 +345,7 @@ remove_copy:
 
     // not cached
 
-    cmd_X_copy_all_lines()
+    cmd_copy_and_all_lines()
     rts
 }
 

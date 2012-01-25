@@ -142,6 +142,7 @@ print """function noreturn rt_copy_tile()
     jmp zp_writer
 }\n"""
 
+# 1-7
 for length in range(1,8):
     for start in range(0,8-length+1):
         end = start + length-1
@@ -168,6 +169,32 @@ for length in range(1,8):
         print_cycles(name, 93+length*11+(8-length)*7)
         print "function noreturn %s() { ct_copy_X_%d_%d(ora) }\n" % (name, start, end)
 
+# special cases for 8
+print """inline ct_copy_X_all(op, page)
+{
+    lda #page
+    sta $2006
+    ldx dlist_data_0, Y
+    stx $2006
+    eor #$10
+    sta $2006
+    lda $2007"""
+
+for i in range(0,8):
+    print "    cu_updt_line(op, dlist_data_%d+%d, %d)" % ((i+1)%3, (i+1)/3, i)
+
+print "    cu_update_data_ptr(3)"
+print "    stx $2006\n    jmp zp_writer\n}\n"
+
+for n in range(0,32):
+    name = "rt_copy_and_all_%d" % n
+    print_cycles(name, 179)
+    print "function noreturn %s() { ct_copy_X_all(and, %d) }\n" % (name, n)
+
+for n in range(0,32):
+    name = "rt_copy_ora_all_%d" % n
+    print_cycles(name, 179)
+    print "function noreturn %s() { ct_copy_X_all(ora, %d) }\n" % (name, n)
 
 # set N lines, clear others
 
@@ -175,7 +202,7 @@ for length in range(1,8):
     for start in range(0,8-length+1):
         end = start + length-1
 
-        name = "ct_setclr_%d_%d" % (start, end)
+        name = "rt_setclr_%d_%d" % (start, end)
         print_cycles(name, 30+8*length+4*(8-length))
         print "function %s()\n{" % name
 
