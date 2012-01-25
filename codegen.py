@@ -211,7 +211,7 @@ for length in range(1,8):
             if i >= start and i <= end:
                 print "    cu_write_line(%s)" % line_to_offset(i-start)
             else:
-                print "    sta $2007"
+                print "    stx $2007"
 
         print_udp(2+length)
         print "}\n"
