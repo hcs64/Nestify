@@ -50,7 +50,6 @@ byte dlist_data_write
 
 word cmd_addr
 byte cmd_start
-#tell.bankoffset
 byte cmd_lines
 byte cmd_op
 byte cmd_byte[8]

@@ -109,7 +109,7 @@ for i in range(0,8):
     print "    cu_op_sta_line(op, dlist_data_%d+%d, %d, %d)" % ((1+i)%3, (1+i)/3, i, 8)
 
 print "    cu_update_data_ptr(3)"
-print "    stx $2006\n    cu_jmp_zpwr_lines(%d)\n}\n" % n
+print "    stx $2006\n    jmp zp_writer\n}\n"
 
 for n in range(0,32):
     name = "rt_and_8_lines_%d" % n

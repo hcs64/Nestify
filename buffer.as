@@ -198,6 +198,7 @@ add_copy:
         ldx tmp_byte
 
 try_add_cache:
+        rts
         ldy cache_map+page, X
         lda cache_used_idx, Y
         tay

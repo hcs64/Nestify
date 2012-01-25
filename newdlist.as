@@ -713,7 +713,9 @@ function cmd_copy_and_all_lines()
     cpy #8
     if (equal)
     {
-        ldy cmd_addr+1
+        lda cmd_addr+1
+        eor #$10
+        tay
         lda cmd_copy_and_lines_tab0-1+8, Y
         ldx cmd_copy_and_lines_tab1-1+8, Y
     }
@@ -734,7 +736,6 @@ function cmd_copy_and_all_lines()
         dey
         lda [tmp_addr], Y
     }
-#tell.bankoffset
 
     add_command()
 
@@ -780,7 +781,7 @@ function cmd_copy_and_all_lines()
  cmd_copy_and_1_line:
     copy_byte(0)
 
-    store_line_address()
+    store_address_flip()
 
     cmd_advance_lines()
 }
@@ -877,7 +878,9 @@ function cmd_copy_ora_all_lines()
     cpy #8
     if (equal)
     {
-        ldy cmd_addr+1
+        lda cmd_addr+1
+        eor #$10
+        tay
         lda cmd_copy_ora_lines_tab0-1+8, Y
         ldx cmd_copy_ora_lines_tab1-1+8, Y
     }
@@ -914,6 +917,7 @@ function cmd_copy_ora_all_lines()
 
  cmd_copy_ora_8_lines:
     lda cmd_addr+0
+    eor #$10
     sta dlist_data_0, X
 
     copy_byte_of_8(0)
@@ -944,7 +948,7 @@ function cmd_copy_ora_all_lines()
  cmd_copy_ora_1_line:
     copy_byte(0)
 
-    store_line_address()
+    store_address_flip()
 
     cmd_advance_lines()
 }
@@ -1286,7 +1290,7 @@ inline cu_jmp_zpwr_lines(lines)
     jmp zp_writer+( (8-lines)*5)
 }
 
-byte rt_finish_frame_cycles[1] = {18}
+byte rt_finish_frame_cycles[1] = {12}
 function rt_finish_frame()
 {
     lda _ppu_ctl0
