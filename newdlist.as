@@ -301,9 +301,15 @@ inline copy_byte(line)
     sta dlist_bitmap_0 + (line & 1) + ( (line & 2) * 0x30) + ( (line & 4) * 0x40), X
 }
 
-inline copy_cache_byte(cache_page, line)
+inline copy_cache_byte(line)
 {
-    lda cache_page, Y
+    lda tile_cache+line, Y
+    sta dlist_bitmap_0 + (line & 1) + ( (line & 2) * 0x30) + ( (line & 4) * 0x40), X
+}
+
+inline copy_cache_byte_100(line)
+{
+    lda tile_cache+0x100+line, Y
     sta dlist_bitmap_0 + (line & 1) + ( (line & 2) * 0x30) + ( (line & 4) * 0x40), X
 }
 
@@ -1054,27 +1060,53 @@ function cmd_tile_cache_write()
 
     add_command()
 
-    ldy cmd_cache_start
+    lda cmd_cache_start
+    asl A
+    asl A
+    asl A
+    tay
 
     store_address_8()
 
-    copy_cache_byte(tile_cache+7, 7)
+    bcs cmd_tcwl_8_100
+
+    copy_cache_byte(7)
  cmd_tcwl_7:
-    copy_cache_byte(tile_cache+6, 6)
+    copy_cache_byte(6)
  cmd_tcwl_6:
-    copy_cache_byte(tile_cache+5, 5)
+    copy_cache_byte(5)
  cmd_tcwl_5:
-    copy_cache_byte(tile_cache+4, 4)
+    copy_cache_byte(4)
  cmd_tcwl_4:
-    copy_cache_byte(tile_cache+3, 3)
+    copy_cache_byte(3)
  cmd_tcwl_3:
-    copy_cache_byte(tile_cache+2, 2)
+    copy_cache_byte(2)
  cmd_tcwl_2:
-    copy_cache_byte(tile_cache+1, 1)
+    copy_cache_byte(1)
  cmd_tcwl_1:
-    copy_cache_byte(tile_cache+0, 0)
+    copy_cache_byte(0)
 
     finalize_command()
+
+    rts
+
+ cmd_tcwl_8_100:
+    copy_cache_byte_100(7)
+ cmd_tcwl_7_100:
+    copy_cache_byte_100(6)
+ cmd_tcwl_6_100:
+    copy_cache_byte_100(5)
+ cmd_tcwl_5_100:
+    copy_cache_byte_100(4)
+ cmd_tcwl_4_100:
+    copy_cache_byte_100(3)
+ cmd_tcwl_3_100:
+    copy_cache_byte_100(2)
+ cmd_tcwl_2_100:
+    copy_cache_byte_100(1)
+ cmd_tcwl_1_100:
+    copy_cache_byte_100(0)
+
 }
 
 
@@ -1093,6 +1125,21 @@ function noreturn cmd_tile_cache_write_lines()
     store_line_address()
 
     ldy cmd_lines
+
+    lda cmd_cache_start
+    asl A
+    asl A
+    asl A
+    ora cmd_start
+    sta cmd_cache_start
+    
+    if (carry)
+    {
+        tya
+        adc #7 // +1
+        tay
+    }
+
     lda cmd_tile_cache_write_lines_jmptab_0, Y
     sta tmp_addr+0
     lda cmd_tile_cache_write_lines_jmptab_1, Y
@@ -1103,9 +1150,9 @@ function noreturn cmd_tile_cache_write_lines()
     jmp [tmp_addr]
 }
 
-byte cmd_tile_cache_write_lines_jmptab_0[8] = { 0, lo(cmd_tcwl_1), lo(cmd_tcwl_2), lo(cmd_tcwl_3), lo(cmd_tcwl_4), lo(cmd_tcwl_5), lo(cmd_tcwl_6), lo(cmd_tcwl_7), }
+byte cmd_tile_cache_write_lines_jmptab_0[15] = { 0, lo(cmd_tcwl_1), lo(cmd_tcwl_2), lo(cmd_tcwl_3), lo(cmd_tcwl_4), lo(cmd_tcwl_5), lo(cmd_tcwl_6), lo(cmd_tcwl_7), lo(cmd_tcwl_1_100), lo(cmd_tcwl_2_100), lo(cmd_tcwl_3_100), lo(cmd_tcwl_4_100), lo(cmd_tcwl_5_100), lo(cmd_tcwl_6_100), lo(cmd_tcwl_7_100)}
 
-byte cmd_tile_cache_write_lines_jmptab_1[8] = { 0, hi(cmd_tcwl_1), hi(cmd_tcwl_2), hi(cmd_tcwl_3), hi(cmd_tcwl_4), hi(cmd_tcwl_5), hi(cmd_tcwl_6), hi(cmd_tcwl_7), }
+byte cmd_tile_cache_write_lines_jmptab_1[15] = { 0, hi(cmd_tcwl_1), hi(cmd_tcwl_2), hi(cmd_tcwl_3), hi(cmd_tcwl_4), hi(cmd_tcwl_5), hi(cmd_tcwl_6), hi(cmd_tcwl_7), hi(cmd_tcwl_1_100), hi(cmd_tcwl_2_100), hi(cmd_tcwl_3_100), hi(cmd_tcwl_4_100), hi(cmd_tcwl_5_100), hi(cmd_tcwl_6_100), hi(cmd_tcwl_7_100)}
 
 function dlist_finish_frame()
 {
