@@ -6,7 +6,6 @@ buffer.as \
 vector.as
 
 PREGEN = \
-advancetab.bin \
 rangetab.bin \
 updaterange.bin \
 codegen.as
@@ -23,9 +22,6 @@ $(EXE): $(SOURCES) $(IMAGES) $(PREGEN)
 
 tell: $(SOURCES) $(IMAGES) $(PREGEN)
 	$(NESHLA) test.as -tell
-
-advancetab.bin: advancetab.py
-	$(PYTHON) advancetab.py
 
 rangetab.bin: rangetab.py
 	$(PYTHON) rangetab.py

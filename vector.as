@@ -203,17 +203,17 @@ function bresenham_setup()
     sec
     lda line_err_strt+0
     sbc line_iters
-    sta line_err+0
+    sta line_err0
     lda line_err_strt+1
     sbc #0
-    sta line_err+1
+    sta line_err1
 
     // compute 2*DMin-2*DMaj (error adjustment when going diagonally)
     sec
-    lda line_err+0
+    lda line_err0
     sbc line_iters
     sta line_err_diag+0
-    lda line_err+1
+    lda line_err1
     sbc #0
     sta line_err_diag+1
 
@@ -225,7 +225,7 @@ function bresenham_common_setup()
 {
     lda #0
     sta tmp_byte
-    sta line_block+1
+    sta line_block1
 
     // x coordinate in blocks
     lda line_x0
@@ -244,8 +244,8 @@ function bresenham_common_setup()
         sbc #( (12*8) - (8/2) )
     }
     asl A
-    sta line_block+0
-    rol line_block+1
+    sta line_block0
+    rol line_block1
 
     // y/8*8*2*12
     lda line_y0
@@ -261,22 +261,22 @@ function bresenham_common_setup()
     rol tmp_byte
     tax
     clc
-    adc line_block+0
-    sta line_block+0
+    adc line_block0
+    sta line_block0
     lda tmp_byte
-    adc line_block+1
-    sta line_block+1
+    adc line_block1
+    sta line_block1
 
     // +16y
     txa
     asl A
     rol tmp_byte
     clc
-    adc line_block+0
-    sta line_block+0
+    adc line_block0
+    sta line_block0
     lda tmp_byte
-    adc line_block+1
-    sta line_block+1
+    adc line_block1
+    sta line_block1
 
     // only interested in the sub-block offset
     tya
@@ -325,8 +325,8 @@ inline bresenham_down_fcn(cmd_fcn, empty_row) {
         if (not equal)
         {
             // send this block
-            ldx line_block+0
-            ldy line_block+1
+            ldx line_block0
+            ldy line_block1
 
             cmd_fcn()
         }
@@ -340,12 +340,12 @@ inline bresenham_down_fcn(cmd_fcn, empty_row) {
 
         // move to next block down
         clc
-        lda line_block+0
+        lda line_block0
         adc #(12*8*2)
-        sta line_block+0
-        lda line_block+1
+        sta line_block0
+        lda line_block1
         adc #0
-        sta line_block+1
+        sta line_block1
 
     }
     else
@@ -373,8 +373,8 @@ inline bresenham_up_fcn(cmd_fcn, empty_row) {
         if (not equal)
         {
             // send this block
-            ldx line_block+0
-            ldy line_block+1
+            ldx line_block0
+            ldy line_block1
 
             cmd_fcn()
         }
@@ -388,12 +388,12 @@ inline bresenham_up_fcn(cmd_fcn, empty_row) {
 
         // move to next block up
         sec
-        lda line_block+0
+        lda line_block0
         sbc #(12*8*2)
-        sta line_block+0
-        lda line_block+1
+        sta line_block0
+        lda line_block1
         sbc #0
-        sta line_block+1
+        sta line_block1
     }
     else
     {
@@ -444,8 +444,8 @@ inline bresenham_H_common(cmd_fcn, empty_row, updown_fcn) {
             ror line_row
 
             // send it
-            ldx line_block+0
-            ldy line_block+1
+            ldx line_block0
+            ldy line_block1
 
             cmd_fcn()
 
@@ -469,12 +469,12 @@ inline bresenham_H_common(cmd_fcn, empty_row, updown_fcn) {
             }
 
             clc
-            lda line_block+0
+            lda line_block0
             adc right_adjust_rom+0, X
-            sta line_block+0
-            lda line_block+1
+            sta line_block0
+            lda line_block1
             adc right_adjust_rom+1, X
-            sta line_block+1
+            sta line_block1
 
             // begin a new block
             ldx line_y0
@@ -492,8 +492,8 @@ inline bresenham_H_common(cmd_fcn, empty_row, updown_fcn) {
             if (equal) {
                 // send whatever we did so far
 
-                ldx line_block+0
-                ldy line_block+1
+                ldx line_block0
+                ldy line_block1
 
                 cmd_fcn()
 
@@ -503,7 +503,7 @@ inline bresenham_H_common(cmd_fcn, empty_row, updown_fcn) {
 
         // go up/down as well?
         ldx #0
-        bit line_err+1
+        bit line_err1
         if (not minus)
         {
             updown_fcn(cmd_fcn, empty_row)
@@ -513,12 +513,12 @@ inline bresenham_H_common(cmd_fcn, empty_row, updown_fcn) {
 
         // adjust error
         clc
-        lda line_err+0
+        lda line_err0
         adc line_err_strt+0, X
-        sta line_err+0
-        lda line_err+1
+        sta line_err0
+        lda line_err1
         adc line_err_strt+1, X
-        sta line_err+1
+        sta line_err1
     }
 }
 
@@ -545,12 +545,12 @@ inline bresenham_right_fcn() {
     }
     
     clc
-    lda line_block+0
+    lda line_block0
     adc right_adjust_rom+0, X
-    sta line_block+0
-    lda line_block+1
+    sta line_block0
+    lda line_block1
     adc right_adjust_rom+1, X
-    sta line_block+1
+    sta line_block1
 }
 
 inline bresenham_left_fcn() {
@@ -568,12 +568,12 @@ inline bresenham_left_fcn() {
     }
     
     sec
-    lda line_block+0
+    lda line_block0
     sbc right_adjust_rom+0, X
-    sta line_block+0
-    lda line_block+1
+    sta line_block0
+    lda line_block1
     sbc right_adjust_rom+1, X
-    sta line_block+1
+    sta line_block1
 }
 
 inline bresenham_V_common(cmd_fcn, wrap_check, pixel_pos_rom, rightleft_fcn, shift_cmd, rot_op) {
@@ -609,8 +609,8 @@ inline bresenham_V_common(cmd_fcn, wrap_check, pixel_pos_rom, rightleft_fcn, shi
         if (equal)
         {
             // yes, send it
-            ldx line_block+0
-            ldy line_block+1
+            ldx line_block0
+            ldy line_block1
 
             cmd_fcn()
 
@@ -628,13 +628,13 @@ inline bresenham_V_common(cmd_fcn, wrap_check, pixel_pos_rom, rightleft_fcn, shi
 
             // move to next block down
             clc
-            lda line_block+0
+            lda line_block0
             and #~7
             adc #(12*8*2)
-            sta line_block+0
-            lda line_block+1
+            sta line_block0
+            lda line_block1
             adc #0
-            sta line_block+1
+            sta line_block1
         }
         else
         {
@@ -642,8 +642,8 @@ inline bresenham_V_common(cmd_fcn, wrap_check, pixel_pos_rom, rightleft_fcn, shi
             if (equal) {
                 // send the last block
 
-                ldx line_block+0
-                ldy line_block+1
+                ldx line_block0
+                ldy line_block1
 
                 cmd_fcn()
 
@@ -653,7 +653,7 @@ inline bresenham_V_common(cmd_fcn, wrap_check, pixel_pos_rom, rightleft_fcn, shi
 
         // go left/right as well?
         ldx #0
-        bit line_err+1
+        bit line_err1
         if (not minus)
         {
             shift_cmd
@@ -668,8 +668,8 @@ inline bresenham_V_common(cmd_fcn, wrap_check, pixel_pos_rom, rightleft_fcn, shi
                     // we had previously written to the current block
 
                     // send it
-                    ldx line_block+0
-                    ldy line_block+1
+                    ldx line_block0
+                    ldy line_block1
 
                     cmd_fcn()
 
@@ -688,12 +688,12 @@ no_wrap:
 
         // adjust error
         clc
-        lda line_err+0
+        lda line_err0
         adc line_err_strt+0, X
-        sta line_err+0
-        lda line_err+1
+        sta line_err0
+        lda line_err1
         adc line_err_strt+1, X
-        sta line_err+1
+        sta line_err1
     }
 }
 function finish_frame()

@@ -7,28 +7,6 @@ updaterangetab:
 rangetab:
 #incbin "rangetab.bin"
 
-byte tile_cache_tab_0[8] = {
-    lo(tile_cache_0),
-    lo(tile_cache_1),
-    lo(tile_cache_2),
-    lo(tile_cache_3),
-    lo(tile_cache_4),
-    lo(tile_cache_5),
-    lo(tile_cache_6),
-    lo(tile_cache_7),
-}
-
-byte tile_cache_tab_1[8] = {
-    hi(tile_cache_0),
-    hi(tile_cache_1),
-    hi(tile_cache_2),
-    hi(tile_cache_3),
-    hi(tile_cache_4),
-    hi(tile_cache_5),
-    hi(tile_cache_6),
-    hi(tile_cache_7),
-}
-
 function init_tracktiles()
 {
     // clear
@@ -50,14 +28,14 @@ function init_tracktiles()
     ldx #TILE_CACHE_ELEMENTS
     do {
         dex
-        sta tile_cache_0, X
-        sta tile_cache_1, X
-        sta tile_cache_2, X
-        sta tile_cache_3, X
-        sta tile_cache_4, X
-        sta tile_cache_5, X
-        sta tile_cache_6, X
-        sta tile_cache_7, X
+        sta tile_cache, X
+        sta tile_cache+0x40, X
+        sta tile_cache+0x80, X
+        sta tile_cache+0xC0, X
+        sta tile_cache+0x100, X
+        sta tile_cache+0x140, X
+        sta tile_cache+0x180, X
+        sta tile_cache+0x1C0, X
         sta tile_cache_dirty_range, X
     } while (not zero)
 
@@ -108,16 +86,16 @@ finish_loop:
         tay
 
         // prepare an address
-        stx cmd_addr+0
+        stx cmd_addr0
         lda #(page/0x100)
-        asl cmd_addr+0
+        asl cmd_addr0
         rol A
-        asl cmd_addr+0
+        asl cmd_addr0
         rol A
-        asl cmd_addr+0
+        asl cmd_addr0
         rol A
         ora cur_nametable_page
-        sta cmd_addr+1
+        sta cmd_addr1
 
         tya
         bit count_mask_zp
@@ -149,18 +127,22 @@ finish_cache:
         stx tmp_byte2
 
         // prepare an address
-        stx cmd_addr+0
+        stx cmd_addr0
         lda #(page/0x100)
-        asl cmd_addr+0
+        asl cmd_addr0
         rol A
-        asl cmd_addr+0
+        asl cmd_addr0
         rol A
-        asl cmd_addr+0
+        asl cmd_addr0
         rol A
         ora cur_nametable_page
-        sta cmd_addr+1
+        sta cmd_addr1
 
-        sty cmd_cache_start
+        tya
+        asl A
+        asl A
+        asl A
+        sta cmd_cache_start
 
         lda tmp_byte
         bit other_frame_mask
@@ -184,6 +166,8 @@ finish_cache_do_this_frame:
         sta cmd_lines
         lda updaterangetab+0x100, X
         sta cmd_start
+        ora cmd_cache_start
+        sta cmd_cache_start
 
         lda #0
         sta tile_cache_dirty_range, Y
@@ -220,11 +204,11 @@ function tracktiles_finish_frame()
 // Y:X = first line address
 function noreturn or_block()
 {
-    stx cmd_addr+0
+    stx cmd_addr0
     tya
     sta tmp_byte
     ora cur_nametable_page
-    sta cmd_addr+1
+    sta cmd_addr1
 
     txa
     lsr tmp_byte
@@ -376,7 +360,7 @@ try_add_cache:
             lda rangetab-8, X
             sta tile_cache_dirty_range, Y
 
-            tile_cache_add_lines()
+            tile_cache_update_set()
         }
         rts
     }
@@ -390,11 +374,11 @@ try_add_cache:
 // Y:X = first line address
 function noreturn clr_block()
 {
-    stx cmd_addr+0
+    stx cmd_addr0
     tya
     sta tmp_byte
     ora cur_nametable_page
-    sta cmd_addr+1
+    sta cmd_addr1
 
     txa
     lsr tmp_byte
@@ -589,18 +573,17 @@ remove_copy:
     rts
 }
 
-inline setup_cache_line_addr()
-{
-    lda tile_cache_tab_0, X
-    sta tmp_addr+0
-    lda tile_cache_tab_1, X
-    sta tmp_addr+1
-}
-
-// writes back into cmd_byte for easier update
 // Y: cache line
 function tile_cache_update_set()
 {
+    tya
+    asl A
+    asl A
+    asl A
+    ora cmd_start
+    sta cmd_cache_start
+    tay
+
     ldx cmd_lines
     lda tile_cache_update_set_jmptab_0, X
     sta tmp_addr+0
@@ -612,81 +595,37 @@ function tile_cache_update_set()
     jmp [tmp_addr]
 
 tile_cache_update_set_8_lines:
-    lda cmd_byte+0
-    ora tile_cache_0, Y
-    sta tile_cache_0, Y
-
-    lda cmd_byte+1
-    ora tile_cache_1, Y
-    sta tile_cache_1, Y
-
-    lda cmd_byte+2
-    ora tile_cache_2, Y
-    sta tile_cache_2, Y
-
-    lda cmd_byte+3
-    ora tile_cache_3, Y
-    sta tile_cache_3, Y
-
-    lda cmd_byte+4
-    ora tile_cache_4, Y
-    sta tile_cache_4, Y
-
-    lda cmd_byte+5
-    ora tile_cache_5, Y
-    sta tile_cache_5, Y
-
-    lda cmd_byte+6
-    ora tile_cache_6, Y
-    sta tile_cache_6, Y
-
-    lda cmd_byte+7
-    ora tile_cache_7, Y
-    sta tile_cache_7, Y
-
-    rts
-
+    lda cmd_byte+7, X
+    ora tile_cache+7, Y
+    sta tile_cache+7, Y
 tile_cache_update_set_7_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    ora [tmp_addr], Y
-    sta [tmp_addr], Y
-    inx
+    lda cmd_byte+6, X
+    ora tile_cache+6, Y
+    sta tile_cache+6, Y
 tile_cache_update_set_6_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    ora [tmp_addr], Y
-    sta [tmp_addr], Y
-    inx
+    lda cmd_byte+5, X
+    ora tile_cache+5, Y
+    sta tile_cache+5, Y
 tile_cache_update_set_5_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    ora [tmp_addr], Y
-    sta [tmp_addr], Y
-    inx
+    lda cmd_byte+4, X
+    ora tile_cache+4, Y
+    sta tile_cache+4, Y
 tile_cache_update_set_4_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    ora [tmp_addr], Y
-    sta [tmp_addr], Y
-    inx
+    lda cmd_byte+3, X
+    ora tile_cache+3, Y
+    sta tile_cache+3, Y
 tile_cache_update_set_3_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    ora [tmp_addr], Y
-    sta [tmp_addr], Y
-    inx
+    lda cmd_byte+2, X
+    ora tile_cache+2, Y
+    sta tile_cache+2, Y
 tile_cache_update_set_2_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    ora [tmp_addr], Y
-    sta [tmp_addr], Y
-    inx
+    lda cmd_byte+1, X
+    ora tile_cache+1, Y
+    sta tile_cache+1, Y
 tile_cache_update_set_1_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    ora [tmp_addr], Y
-    sta [tmp_addr], Y
+    lda cmd_byte+0, X
+    ora tile_cache+0, Y
+    sta tile_cache+0, Y
 }
 
 byte tile_cache_update_set_jmptab_0[9] = {
@@ -713,10 +652,17 @@ byte tile_cache_update_set_jmptab_1[9] = {
     hi(tile_cache_update_set_8_lines),
 }
 
-// writes back into cmd_byte for easier update
 // Y: cache line
 function tile_cache_update_clr()
 {
+    tya
+    asl A
+    asl A
+    asl A
+    ora cmd_start
+    sta cmd_cache_start
+    tay
+
     ldx cmd_lines
     lda tile_cache_update_clr_jmptab_0, X
     sta tmp_addr+0
@@ -728,81 +674,37 @@ function tile_cache_update_clr()
     jmp [tmp_addr]
 
 tile_cache_update_clr_8_lines:
-    lda cmd_byte+0
-    and tile_cache_0, Y
-    sta tile_cache_0, Y
-
-    lda cmd_byte+1
-    and tile_cache_1, Y
-    sta tile_cache_1, Y
-
-    lda cmd_byte+2
-    and tile_cache_2, Y
-    sta tile_cache_2, Y
-
-    lda cmd_byte+3
-    and tile_cache_3, Y
-    sta tile_cache_3, Y
-
-    lda cmd_byte+4
-    and tile_cache_4, Y
-    sta tile_cache_4, Y
-
-    lda cmd_byte+5
-    and tile_cache_5, Y
-    sta tile_cache_5, Y
-
-    lda cmd_byte+6
-    and tile_cache_6, Y
-    sta tile_cache_6, Y
-
-    lda cmd_byte+7
-    and tile_cache_7, Y
-    sta tile_cache_7, Y
-
-    rts
-
+    lda cmd_byte+7, X
+    and tile_cache+7, Y
+    sta tile_cache+7, Y
 tile_cache_update_clr_7_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    and [tmp_addr], Y
-    sta [tmp_addr], Y
-    inx
+    lda cmd_byte+6, X
+    and tile_cache+6, Y
+    sta tile_cache+6, Y
 tile_cache_update_clr_6_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    and [tmp_addr], Y
-    sta [tmp_addr], Y
-    inx
+    lda cmd_byte+5, X
+    and tile_cache+5, Y
+    sta tile_cache+5, Y
 tile_cache_update_clr_5_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    and [tmp_addr], Y
-    sta [tmp_addr], Y
-    inx
+    lda cmd_byte+4, X
+    and tile_cache+4, Y
+    sta tile_cache+4, Y
 tile_cache_update_clr_4_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    and [tmp_addr], Y
-    sta [tmp_addr], Y
-    inx
+    lda cmd_byte+3, X
+    and tile_cache+3, Y
+    sta tile_cache+3, Y
 tile_cache_update_clr_3_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    and [tmp_addr], Y
-    sta [tmp_addr], Y
-    inx
+    lda cmd_byte+2, X
+    and tile_cache+2, Y
+    sta tile_cache+2, Y
 tile_cache_update_clr_2_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    and [tmp_addr], Y
-    sta [tmp_addr], Y
-    inx
+    lda cmd_byte+1, X
+    and tile_cache+1, Y
+    sta tile_cache+1, Y
 tile_cache_update_clr_1_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    and [tmp_addr], Y
-    sta [tmp_addr], Y
+    lda cmd_byte+0, X
+    and tile_cache+0, Y
+    sta tile_cache+0, Y
 }
 
 byte tile_cache_update_clr_jmptab_0[9] = {
@@ -830,115 +732,44 @@ byte tile_cache_update_clr_jmptab_1[9] = {
 }
 
 // Y: cache line
-function tile_cache_add_lines()
-{
-    ldx cmd_lines
-    lda tile_cache_add_lines_jmptab_0, X
-    sta tmp_addr+0
-    lda tile_cache_add_lines_jmptab_1, X
-    sta tmp_addr+1
-
-    ldx cmd_start
-
-    jmp [tmp_addr]
-
-tile_cache_add_8_lines:
-    lda cmd_byte+0
-    sta tile_cache_0, Y
-    lda cmd_byte+1
-    sta tile_cache_1, Y
-    lda cmd_byte+2
-    sta tile_cache_2, Y
-    lda cmd_byte+3
-    sta tile_cache_3, Y
-    lda cmd_byte+4
-    sta tile_cache_4, Y
-    lda cmd_byte+5
-    sta tile_cache_5, Y
-    lda cmd_byte+6
-    sta tile_cache_6, Y
-    lda cmd_byte+7
-    sta tile_cache_7, Y
-    rts
-
-tile_cache_add_7_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    sta [tmp_addr], Y
-    inx
-tile_cache_add_6_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    sta [tmp_addr], Y
-    inx
-tile_cache_add_5_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    sta [tmp_addr], Y
-    inx
-tile_cache_add_4_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    sta [tmp_addr], Y
-    inx
-tile_cache_add_3_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    sta [tmp_addr], Y
-    inx
-tile_cache_add_2_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    sta [tmp_addr], Y
-    inx
-tile_cache_add_1_lines:
-    setup_cache_line_addr()
-    lda cmd_byte, X
-    sta [tmp_addr], Y
-}
-
-byte tile_cache_add_lines_jmptab_0[9] = {
-    0,
-    lo(tile_cache_add_1_lines),
-    lo(tile_cache_add_2_lines),
-    lo(tile_cache_add_3_lines),
-    lo(tile_cache_add_4_lines),
-    lo(tile_cache_add_5_lines),
-    lo(tile_cache_add_6_lines),
-    lo(tile_cache_add_7_lines),
-    lo(tile_cache_add_8_lines),
-}
-
-byte tile_cache_add_lines_jmptab_1[9] = {
-    0,
-    hi(tile_cache_add_1_lines),
-    hi(tile_cache_add_2_lines),
-    hi(tile_cache_add_3_lines),
-    hi(tile_cache_add_4_lines),
-    hi(tile_cache_add_5_lines),
-    hi(tile_cache_add_6_lines),
-    hi(tile_cache_add_7_lines),
-    hi(tile_cache_add_8_lines),
-}
-
-// Y: cache line
 function tile_cache_remove()
 {
+    tya
+    asl A
+    asl A
+    asl A
+    tay
+
     lda #0
 
-    sta tile_cache_0, Y
-    sta tile_cache_1, Y
-    sta tile_cache_2, Y
-    sta tile_cache_3, Y
-    sta tile_cache_4, Y
-    sta tile_cache_5, Y
-    sta tile_cache_6, Y
-    sta tile_cache_7, Y
+tile_cache_remove_8_lines:
+    sta tile_cache+7, Y
+tile_cache_remove_7_lines:
+    sta tile_cache+6, Y
+tile_cache_remove_6_lines:
+    sta tile_cache+5, Y
+tile_cache_remove_5_lines:
+    sta tile_cache+4, Y
+tile_cache_remove_4_lines:
+    sta tile_cache+3, Y
+tile_cache_remove_3_lines:
+    sta tile_cache+2, Y
+tile_cache_remove_2_lines:
+    sta tile_cache+1, Y
+tile_cache_remove_1_lines:
+    sta tile_cache+0, Y
 }
 
 // Y: cache line
-function tile_cache_remove_lines()
+function noreturn tile_cache_remove_lines()
 {
+    tya
+    asl A
+    asl A
+    asl A
+    ora cmd_start
+    tay
+
     ldx cmd_lines
     lda tile_cache_remove_lines_jmptab_0, X
     sta tmp_addr+0
@@ -946,43 +777,9 @@ function tile_cache_remove_lines()
     sta tmp_addr+1
 
     ldx cmd_start
+    lda #0
 
     jmp [tmp_addr]
-
-tile_cache_remove_7_lines:
-    setup_cache_line_addr()
-    lda #0
-    sta [tmp_addr], Y
-    inx
-tile_cache_remove_6_lines:
-    setup_cache_line_addr()
-    lda #0
-    sta [tmp_addr], Y
-    inx
-tile_cache_remove_5_lines:
-    setup_cache_line_addr()
-    lda #0
-    sta [tmp_addr], Y
-    inx
-tile_cache_remove_4_lines:
-    setup_cache_line_addr()
-    lda #0
-    sta [tmp_addr], Y
-    inx
-tile_cache_remove_3_lines:
-    setup_cache_line_addr()
-    lda #0
-    sta [tmp_addr], Y
-    inx
-tile_cache_remove_2_lines:
-    setup_cache_line_addr()
-    lda #0
-    sta [tmp_addr], Y
-    inx
-tile_cache_remove_1_lines:
-    setup_cache_line_addr()
-    lda #0
-    sta [tmp_addr], Y
 }
 
 byte tile_cache_remove_lines_jmptab_0[9] = {
@@ -994,7 +791,7 @@ byte tile_cache_remove_lines_jmptab_0[9] = {
     lo(tile_cache_remove_5_lines),
     lo(tile_cache_remove_6_lines),
     lo(tile_cache_remove_7_lines),
-    lo(tile_cache_remove),
+    lo(tile_cache_remove_8_lines),
 }
 
 byte tile_cache_remove_lines_jmptab_1[9] = {
@@ -1006,6 +803,6 @@ byte tile_cache_remove_lines_jmptab_1[9] = {
     hi(tile_cache_remove_5_lines),
     hi(tile_cache_remove_6_lines),
     hi(tile_cache_remove_7_lines),
-    hi(tile_cache_remove),
+    hi(tile_cache_remove_8_lines),
 }
 
