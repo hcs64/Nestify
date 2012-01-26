@@ -210,34 +210,17 @@ enough_space:
     lsr dlist_reset_cycles
     if (carry)
     {
+        // Reset cycles. Assume the last command may not have been
+        // exposed in time to be executed, so count it against the
+        // current dlist.
         sec
         lda #lo(MAX_VBLANK_CYCLES)
-        sbc [tmp_addr], Y
+        sbc last_cmd_cycles
         sta dlist_cycles_left+0
         lda #hi(MAX_VBLANK_CYCLES)
         sbc #0
         sta dlist_cycles_left+1
 
- can_add_command:
-        ldy dlist_next_cmd_write
-
-        lda tmp_addr+0
-        sta 0x100, Y
-        txa
-        sta 0x101, Y
-        iny
-        iny
-
-        if (zero)
-        {
-            ldy #lo(dlist)
-        }
-        sty dlist_next_cmd_write
-
-
-        ldx dlist_data_write
-
-        rts
     }
 
     sec
@@ -248,7 +231,32 @@ enough_space:
     sbc #0
     sta dlist_cycles_left+1
 
-    bpl can_add_command
+    bmi out_of_cycles
+
+    lda [tmp_addr], Y
+    sta last_cmd_cycles
+
+    ldy dlist_next_cmd_write
+
+    lda tmp_addr+0
+    sta 0x100, Y
+    txa
+    sta 0x101, Y
+    iny
+    iny
+
+    if (zero)
+    {
+        ldy #lo(dlist)
+    }
+    sty dlist_next_cmd_write
+
+
+    ldx dlist_data_write
+
+    rts
+
+out_of_cycles:
 
     // otherwise we need to polish off the last dlist
     finalize_dlist()

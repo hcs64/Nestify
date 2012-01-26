@@ -50,7 +50,6 @@ byte cmd_byte[8]
 
 // only check_for_space_and_cycles() uses these
 byte cmd_size   // reused for operation line range
-byte cmd_cycles
 byte last_cmd_cycles
 
 //
