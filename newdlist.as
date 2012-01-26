@@ -100,6 +100,7 @@ function dlist_end_complete()
     inc_16(complete_vblanks)
 
 dlist_end_common:
+#tell.bankoffset
     ldx dlist_cmd_end
     lda dlist_cmd_copy0
     sta 0x100, X
@@ -1136,7 +1137,7 @@ function noreturn cmd_tile_cache_write_lines()
     if (carry)
     {
         tya
-        adc #7 // +1
+        adc #6 // +1
         tay
     }
 
