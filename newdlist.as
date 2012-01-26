@@ -1,6 +1,6 @@
 // threaded display list generation
 
-#define MAX_VBLANK_CYCLES 2120
+#define MAX_VBLANK_CYCLES 2150
 
 // 54 cycles
 // 41 bytes
@@ -112,25 +112,39 @@ dlist_end_common:
 
 function process_dlist()
 {
-    ppu_ctl1_assign(#0) // disable rendering
+    // 28 cycles into vblank already
 
-    ldx dlist_cmd_end
-    lda 0x100, X
-    sta dlist_cmd_copy0
-    lda 0x101, X
-    sta dlist_cmd_copy1
 
-    lda #lo(dlist_end_incomplete-1)
-    sta 0x100, X
-    lda #hi(dlist_end_incomplete-1)
-    sta 0x101, X
+    // disable rendering
+    ppu_ctl1_assign(#0) // 9
 
-    tsx
-    stx dlist_orig_S
+    ldx dlist_cmd_end   // 3
+    lda 0x100, X        // 4
+    sta dlist_cmd_copy0 // 3
+    lda 0x101, X        // 4
+    sta dlist_cmd_copy1 // 3
 
-    ldx dlist_next_cmd_read
-    dex
-    txs
+    lda #lo(dlist_end_incomplete-1) // 2
+    sta 0x100, X                    // 4
+    lda #hi(dlist_end_incomplete-1) // 2
+    sta 0x101, X                    // 4
+
+    tsx                 // 2
+    stx dlist_orig_S    // 3
+
+    ldx dlist_next_cmd_read // 3
+    dex // 2
+    txs // 2
+
+    // rts // 6
+
+    // approx 2270 cycles per vblank
+    // -
+    // pre-dlist: 84
+    // possible wrap: 10
+    // time to reenable rendering: 19
+    // --------------
+    // cycles left for dlist: 2157
 }
 
 function finalize_dlist()
