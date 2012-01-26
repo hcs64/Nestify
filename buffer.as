@@ -36,7 +36,8 @@ function init_tracktiles()
         sta tile_cache+0x140, X
         sta tile_cache+0x180, X
         sta tile_cache+0x1C0, X
-        sta tile_cache_dirty_range, X
+        sta tile_cache_dirty_range_0, X
+        sta tile_cache_dirty_range_1, X
     } while (not zero)
 
     // init free list
@@ -117,17 +118,51 @@ finish_cache:
 
         and #CACHE_LINE_MASK
         tay
+
         lda tile_cache_list, Y
-        
         sta tmp_byte
 
         and #(DIRTY_FRAME_0|DIRTY_FRAME_1)
-        beq no_finish_needed
+        if (zero)
+        {
+            sta tile_cache_dirty_range_0, Y
+            sta tile_cache_dirty_range_1, Y
+            jmp no_finish_needed
+        }
 
         stx tmp_byte2
 
+        lda tmp_byte
+        bit other_frame_mask
+        if (not zero)
+        {
+            eor other_frame_mask
+            sta tile_cache_list, Y
+        }
+
+        lda this_frame_mask
+        cmp #DIRTY_FRAME_0
+        if (equal)
+        {
+            ldx tile_cache_dirty_range_0, Y
+            lda #0
+            sta tile_cache_dirty_range_0, Y
+        }
+        else
+        {
+            ldx tile_cache_dirty_range_1, Y
+            lda #0
+            sta tile_cache_dirty_range_1, Y
+        }
+
+        // write only lines touched since this frame last updated
+
+        txa
+        beq finish_finished
+
         // prepare an address
-        stx cmd_addr0
+        lda tmp_byte2
+        sta cmd_addr0
         lda #(page/0x100)
         asl cmd_addr0
         rol A
@@ -138,33 +173,12 @@ finish_cache:
         ora cur_nametable_page
         sta cmd_addr1
 
-        sty cmd_cache_start
-
-        lda tmp_byte
-        bit other_frame_mask
-        beq finish_cache_do_this_frame
-
-        // write the whole tile (needed due to other frame's activity)
-        eor other_frame_mask
-        sta tile_cache_list, Y
-
-        lda #0
-        sta tile_cache_dirty_range, Y
-
-        cmd_tile_cache_write()
-        jmp finish_finished
-
-finish_cache_do_this_frame:
-        // write only lines touched in this frame
-
-        ldx tile_cache_dirty_range, Y
         lda updaterangetab, X
         sta cmd_lines
         lda updaterangetab+0x100, X
         sta cmd_start
 
-        lda #0
-        sta tile_cache_dirty_range, Y
+        sty cmd_cache_start
 
         cmd_tile_cache_write_lines()
 
@@ -247,17 +261,10 @@ inline add_prim_cached(page)
     inc tile_cache_list, X
     lda tile_cache_list, X
 
-    bit this_frame_mask
-    bne add_cached_update
     ora this_frame_mask
     sta tile_cache_list, X
 
-    bit other_frame_mask
-    bne add_cached_copy
-
-add_cached_update:
-
-    // write back only the changed lines
+    // mark changed lines dirty
     lda cmd_lines
     asl A
     asl A
@@ -265,16 +272,12 @@ add_cached_update:
     ora cmd_start
     tax
     lda rangetab-8, X
-    ora tile_cache_dirty_range, Y
-    sta tile_cache_dirty_range, Y
+    ora tile_cache_dirty_range_0, Y
+    sta tile_cache_dirty_range_0, Y
 
-    tile_cache_update_set()
-    rts
-
-add_cached_copy:
-    // write the whole block
-    lda #$FF
-    sta tile_cache_dirty_range, Y
+    lda rangetab-8, X
+    ora tile_cache_dirty_range_1, Y
+    sta tile_cache_dirty_range_1, Y
 
     tile_cache_update_set()
     rts
@@ -297,13 +300,15 @@ add_update:
     bit count_mask_zp
     if (zero)
     {
-        stx tmp_byte    // unmolested by cmd_set_lines
+        lda #$FF
+        sta tmp_byte2
+
+        ldy tile_cache_free_ptr
+        bpl do_add_cache
 
         cmd_set_lines()
 
-        ldx tmp_byte
-
-        jmp try_add_cache
+        rts
     }
 
     // not zero prims
@@ -318,49 +323,66 @@ add_copy:
     bit count_mask_zp
     if (zero)
     {
-        stx tmp_byte
+        lda #$FF
+        sta tmp_byte2
+
+        ldy tile_cache_free_ptr
+        bpl do_add_cache
 
         cmd_set_all_lines()
 
-        ldx tmp_byte
-
-try_add_cache:
-        ldy tile_cache_free_ptr
-        if (not minus)
-        {
-            lda tile_status+page, X
-            sta tmp_byte
-            lda #CACHED_MASK
-            ora tile_cache_free_ptr
-            sta tile_status+page, X
-
-            // point free list head at next
-            lda tile_cache_list, Y
-            sta tile_cache_free_ptr
-
-            // now use free list entry for status
-            lda tmp_byte
-            and #(DIRTY_FRAME_0|DIRTY_FRAME_1)
-            ora #1
-            sta tile_cache_list, Y
-
-            // set dirty range
-            lda cmd_lines
-            asl A
-            asl A
-            asl A
-            ora cmd_start
-            tax
-            lda rangetab-8, X
-            sta tile_cache_dirty_range, Y
-
-            tile_cache_update_set()
-        }
         rts
     }
 
     // not zero prims
     cmd_copy_ora_all_lines()
+    rts
+
+do_add_cache:
+    lda tile_status+page, X
+    sta tmp_byte
+    lda #CACHED_MASK
+    ora tile_cache_free_ptr
+    sta tile_status+page, X
+
+    // point free list head at next
+    lda tile_cache_list, Y
+    sta tile_cache_free_ptr
+
+    // now use free list entry for status
+    lda tmp_byte
+    and #(DIRTY_FRAME_0|DIRTY_FRAME_1)
+    ora #1
+    sta tile_cache_list, Y
+
+    // set dirty range
+    lda cmd_lines
+    asl A
+    asl A
+    asl A
+    ora cmd_start
+    tax
+
+    lda rangetab-8, X
+    ora tmp_byte2
+
+    ldx this_frame_mask
+    cpx #DIRTY_FRAME_0
+    if (equal)
+    {
+        tax
+        lda #$FF
+    }
+    else
+    {
+        ldx #$FF
+    }
+    sta tile_cache_dirty_range_0, Y
+    txa
+    sta tile_cache_dirty_range_1, Y
+
+    tile_cache_update_set()
+
     rts
 }
 
@@ -412,17 +434,10 @@ inline remove_prim_cached(page)
     tax
     lda tile_cache_list, X
 
-    bit this_frame_mask
-    bne remove_cached_update
     ora this_frame_mask
     sta tile_cache_list, X
 
-    bit other_frame_mask
-    bne remove_cached_copy
-
-remove_cached_update:
-
-    ldy tile_cache_list, X
+    tay
     dey
     sty tile_cache_list, X
     tya
@@ -437,8 +452,20 @@ remove_cached_update:
         asl A
         ora cmd_start
         tay
-        lda rangetab-8, Y
-        ora tile_cache_dirty_range, X
+
+        lda this_frame_mask
+        cmp #DIRTY_FRAME_0
+
+        if (equal)
+        {
+            lda tile_cache_dirty_range_0, X
+        }
+        else
+        {
+            lda tile_cache_dirty_range_1, X
+        }
+
+        ora rangetab-8, Y
         tay
 
         // clear active range
@@ -448,8 +475,6 @@ remove_cached_update:
         sta cmd_start
 
         cmd_clr_lines()
-
-evict_from_cache:
 
         ldx tmp_byte
         lda tile_status+page, X
@@ -469,7 +494,8 @@ evict_from_cache:
         ldy tile_cache_free_ptr
 
         lda #0
-        sta tile_cache_dirty_range, Y
+        sta tile_cache_dirty_range_0, Y
+        sta tile_cache_dirty_range_1, Y
 
         tile_cache_remove_lines()
 
@@ -487,39 +513,16 @@ evict_from_cache:
     ora cmd_start
     tax
     lda rangetab-8, X
-    ora tile_cache_dirty_range, Y
-    sta tile_cache_dirty_range, Y
+    ora tile_cache_dirty_range_0, Y
+    sta tile_cache_dirty_range_0, Y
+
+    lda rangetab-8, X
+    ora tile_cache_dirty_range_1, Y
+    sta tile_cache_dirty_range_1, Y
 
     tile_cache_update_clr()
 
     rts
-
-remove_cached_copy:
-
-    ldy tile_cache_list, X
-    dey
-    sty tile_cache_list, X
-    tya
-    and #COUNT_MASK
-
-    if (zero)
-    {
-        cmd_tile_clear()
-
-        jmp evict_from_cache
-    }
-
-    txa
-    tay
-
-    // update entire tile
-    lda #$FF
-    sta tile_cache_dirty_range, Y
-
-    tile_cache_update_clr()
-
-    rts
-
 }
 
 inline remove_prim(page)

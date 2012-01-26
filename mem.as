@@ -121,10 +121,9 @@ line_s lines[4*NUM_POLYS]
 
 #ram.org 0x200, 0x200
 
-byte tile_cache_dirty_range[0x40]
+byte tile_cache_dirty_range_0[0x40]
 byte dlist_bitmap_0[0x60]   // 0, 1
 byte dlist_bitmap_1[0x60]   // 2, 3
-// reserved for other page of dirty range
 byte tile_cache_dirty_range_1[0x40]
 byte dlist_bitmap_2[0x60]   // 4, 5
 byte dlist_bitmap_3[0x60]   // 6, 7
