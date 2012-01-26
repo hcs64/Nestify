@@ -1,5 +1,6 @@
 #define TILES_WIDE 24
 #define TILES_HIGH 21
+#define TILE_CACHE_ELEMENTS 64
 
 #ram.org 0x0, 0x10
 
@@ -20,71 +21,63 @@ word complete_vblanks
 word stuck_cnt
 #ram.end
 
-#ram.org 0x10, 0x80
+#ram.org 0x11, 0x60
+
+dlist_addr_data:  // 0x11, 0x13, etc to 0x71
+byte pad00
+
 // tile status bits
-byte this_frame_mask
-byte other_frame_mask
-byte count_mask_zp
-byte cur_nametable_page
+byte this_frame_mask,       pad01
+byte other_frame_mask,      pad02
+byte count_mask_zp,         pad03
+byte cur_nametable_page,    pad04
 
 // small dlist stuff
-byte dlist_next_cmd_read
-byte dlist_next_cmd_write
-byte dlist_cmd_end
+byte dlist_next_cmd_read,   pad05
+byte dlist_next_cmd_write,  pad06
+byte dlist_cmd_end,         pad07
 
-word dlist_cycles_left
-byte dlist_reset_cycles
+byte dlist_cycles_left0,    pad08
+byte dlist_cycles_left1,    pad09
+byte dlist_reset_cycles,    pad0a
 
-word dlist_cmd_copy // nmi's local copy
-byte dlist_orig_S
+byte dlist_cmd_copy0,       pad0b
+byte dlist_cmd_copy1,       pad0c
+byte dlist_orig_S,          pad0d
 
-byte dlist_data_read
-byte dlist_data_write
+byte cmd_addr0,             pad0e
+byte cmd_addr1,             pad0f
+byte cmd_start,             pad10
+byte cmd_cache_start,       pad11
+byte cmd_lines,             pad12
 
-word cmd_addr
-byte cmd_start
-byte cmd_cache_start
-byte cmd_lines
-byte cmd_byte[8]
+byte last_cmd_cycles,       pad13
 
-// only check_for_space_and_cycles() uses these
-byte cmd_size   // reused for operation line range
-byte cmd_cycles
-byte last_cmd_cycles
+byte line_x0,               pad14
+byte line_y0,               pad15
+byte line_x1,               pad16
+byte line_y1,               pad17
 
-//
-byte line_x0
-byte line_y0
-byte line_x1
-byte line_y1
+byte line_row,              pad18
+byte line_iters,            pad19
+byte line_x_block,          pad1a
+byte line_block0,           pad1b
+byte line_block1,           pad1c
+byte line_err0,             pad1d
+byte line_err1,             pad1e
 
-byte line_row
-byte line_iters
-byte line_x_block
-word line_block
-word line_err
-word line_err_strt
-word line_err_diag
-
-//
-byte head_poly, tail_poly
-
-#define NUM_POLYS 4
-#define POLY_WRAP_MASK %110000
-typedef struct point_s {
-    byte x, y, vx, vy
-}
-point_s points[4]
-
-typedef struct line_s {
-    byte x0, x1, y0, y1
-}
-line_s lines[4*NUM_POLYS]
+byte head_poly,             pad1f
+byte tail_poly,             pad20
 
 #ram.end
 
-#define TILE_CACHE_ELEMENTS 64
-#ram.org 0x90, 0x41
+#ram.org 0x71, 0x4D
+// must be contiguous
+word line_err_strt
+word line_err_diag
+
+byte cmd_byte[8]
+
 byte tile_cache_list[TILE_CACHE_ELEMENTS]
 byte tile_cache_free_ptr
 #ram.end
@@ -102,34 +95,43 @@ byte zp_immed_7[5]  // NN ; sta $2007 ; rts
 
 #ram.end
 
-#ram.org 0x100, 0x60
+#ram.org 0x100, 0x100
+byte dlist[0x60]
+dlist_end:
+byte dlist_wrap[2]
+
 // stack
 byte stack[0x20]
 stack_end:
 
-byte tile_cache_4[TILE_CACHE_ELEMENTS]
-#ram.end
+// 
+#define NUM_POLYS 4
+#define POLY_WRAP_MASK %110000
+typedef struct point_s {
+    byte x, y, vx, vy
+}
+point_s points[4]
 
-#ram.org 0x182, 0x7E
-byte dlist[0x7E]
-#ram.end
-
-#ram.org 0x200, 0x300
-
-byte dlist_data_0[0xC0]
-byte tile_cache_5[TILE_CACHE_ELEMENTS]
-byte dlist_data_1[0xC0]
-byte tile_cache_6[TILE_CACHE_ELEMENTS]
-byte dlist_data_2[0xC0]
-byte tile_cache_7[TILE_CACHE_ELEMENTS]
+typedef struct line_s {
+    byte x0, x1, y0, y1
+}
+line_s lines[4*NUM_POLYS]
 
 #ram.end
 
-#ram.org 0x500, 0x100
-byte tile_cache_0[TILE_CACHE_ELEMENTS]
-byte tile_cache_1[TILE_CACHE_ELEMENTS]
-byte tile_cache_2[TILE_CACHE_ELEMENTS]
-byte tile_cache_3[TILE_CACHE_ELEMENTS]
+#ram.org 0x200, 0x200
+
+byte tile_cache_dirty_range_0[0x40]
+byte dlist_bitmap_0[0x60]   // 0, 1
+byte dlist_bitmap_1[0x60]   // 2, 3
+byte tile_cache_dirty_range_1[0x40]
+byte dlist_bitmap_2[0x60]   // 4, 5
+byte dlist_bitmap_3[0x60]   // 6, 7
+
+#ram.end
+
+#ram.org 0x400, 0x200
+byte tile_cache[TILE_CACHE_ELEMENTS*8]
 #ram.end
 
 #ram.org 0x608, 0x1F8

@@ -28,18 +28,18 @@ interrupt.irq int_irq()
 
 interrupt.nmi int_nmi()
 {
-    pha
-    txa
-    pha
-    tya
-    pha
+    pha // 3
+    txa // 2
+    pha // 3
+    tya // 2
+    pha // 3
 
-    lda PPU.STATUS
+    lda PPU.STATUS  // 4
 
-    lda #1
-    sta nmi_hit
+    lda #1  // 2
+    sta nmi_hit // 3
 
-    process_dlist()
+    process_dlist() // 6+
 
     pla
     tay
