@@ -100,7 +100,6 @@ function dlist_end_complete()
     inc_16(complete_vblanks)
 
 dlist_end_common:
-#tell.bankoffset
     ldx dlist_cmd_end
     lda dlist_cmd_copy0
     sta 0x100, X
@@ -129,7 +128,6 @@ function process_dlist()
     tsx
     stx dlist_orig_S
 
-#tell.bankoffset
     ldx dlist_next_cmd_read
     dex
     txs
@@ -356,6 +354,8 @@ function cmd_set_lines()
 
     add_command()
 
+    store_line_address()
+
     ldy cmd_lines
     lda cmd_set_lines_jmptab_0, Y
     sta tmp_addr+0
@@ -396,8 +396,6 @@ function cmd_set_lines()
     copy_byte(1)
  cmd_set_1_line:
     copy_byte(0)
-
-    store_line_address()
 
     finalize_command()
 }
