@@ -1108,6 +1108,7 @@ function cmd_tile_cache_write()
  cmd_tcwl_1_100:
     copy_cache_byte_100(0)
 
+    finalize_command()
 }
 
 

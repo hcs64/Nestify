@@ -577,14 +577,14 @@ function tile_cache_update_set()
     ora cmd_start
     tay
 
-    ldx cmd_lines
+    lda cmd_lines
 
     if (carry)
     {
-        txa
         adc #7 // +1
-        tax
     }
+
+    tax
 
     lda tile_cache_update_set_jmptab_0, X
     sta tmp_addr+0
@@ -716,14 +716,14 @@ function tile_cache_update_clr()
     ora cmd_start
     tay
 
-    ldx cmd_lines
+    lda cmd_lines
 
     if (carry)
     {
-        txa
         adc #7 // +1
-        tax
     }
+
+    tax
 
     lda tile_cache_update_clr_jmptab_0, X
     sta tmp_addr+0
@@ -906,7 +906,15 @@ function noreturn tile_cache_remove_lines()
     ora cmd_start
     tay
 
-    ldx cmd_lines
+    lda cmd_lines
+
+    if (carry)
+    {
+        adc #7 // +1
+    }
+
+    tax
+
     lda tile_cache_remove_lines_jmptab_0, X
     sta tmp_addr+0
     lda tile_cache_remove_lines_jmptab_1, X
