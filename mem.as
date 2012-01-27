@@ -68,6 +68,12 @@ byte line_err1,             pad1e
 
 byte head_poly,             pad1f
 byte tail_poly,             pad20
+byte pal_cur,               pad21
+byte pal_dest,              pad22
+byte pal_delay,             pad23
+byte pal_timer,             pad24
+byte rndx,                  pad25
+byte rndy,                  pad26
 
 #ram.end
 

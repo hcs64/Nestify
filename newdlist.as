@@ -1,6 +1,6 @@
 // threaded display list generation
 
-#define MAX_VBLANK_CYCLES 2150
+#define MAX_VBLANK_CYCLES 2080
 
 // 54 cycles
 // 41 bytes
@@ -112,7 +112,7 @@ dlist_end_common:
 
 function process_dlist()
 {
-    // 28 cycles into vblank already
+    // 100 cycles into vblank already
 
 
     // disable rendering
@@ -140,11 +140,11 @@ function process_dlist()
 
     // approx 2270 cycles per vblank
     // -
-    // pre-dlist: 84
+    // pre-dlist: 156
     // possible wrap: 10
     // time to reenable rendering: 19
     // --------------
-    // cycles left for dlist: 2157
+    // cycles left for dlist: 2085
 }
 
 function finalize_dlist()
