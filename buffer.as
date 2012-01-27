@@ -72,16 +72,11 @@ finish_loop:
 
         bmi finish_cache
 
-        // never need to update if it wasn't touched previous frame
-        bit other_frame_mask
-        beq no_finish_halfway
-
-        eor other_frame_mask
-        sta tile_status+page, X
-
-        // never need to update if it was touched already this frame
+        // never need to update if this frame is clean
         bit this_frame_mask
-        bne no_finish_halfway
+        beq no_finish_halfway
+        eor this_frame_mask
+        sta tile_status+page, X
 
         stx tmp_byte2
         tay
@@ -122,23 +117,7 @@ finish_cache:
         lda tile_cache_list, Y
         sta tmp_byte
 
-        and #(DIRTY_FRAME_0|DIRTY_FRAME_1)
-        if (zero)
-        {
-            sta tile_cache_dirty_range_0, Y
-            sta tile_cache_dirty_range_1, Y
-            jmp no_finish_needed
-        }
-
         stx tmp_byte2
-
-        lda tmp_byte
-        bit other_frame_mask
-        if (not zero)
-        {
-            eor other_frame_mask
-            sta tile_cache_list, Y
-        }
 
         lda this_frame_mask
         cmp #DIRTY_FRAME_0
@@ -285,24 +264,21 @@ inline add_prim_cached(page)
 
 inline add_prim(page)
 {
+    sta tmp_byte
     bit this_frame_mask
-    bne add_update
-    ora this_frame_mask
-
-    bit other_frame_mask
     bne add_copy
 
 add_update:
-    // TF || !OF
+    and #COUNT_MASK
+    tay
+
+    ora other_frame_mask
     sta tile_status+page, X
     inc tile_status+page, X
 
-    bit count_mask_zp
+    tya
     if (zero)
     {
-        lda #$FF
-        sta tmp_byte2
-
         ldy tile_cache_free_ptr
         bpl do_add_cache
 
@@ -316,16 +292,16 @@ add_update:
     rts
 
 add_copy:
-    // !TF && OF
+    and #COUNT_MASK
+    tay
+
+    ora other_frame_mask
     sta tile_status+page, X
     inc tile_status+page, X
 
-    bit count_mask_zp
+    tya
     if (zero)
     {
-        lda #$FF
-        sta tmp_byte2
-
         ldy tile_cache_free_ptr
         bpl do_add_cache
 
@@ -339,8 +315,6 @@ add_copy:
     rts
 
 do_add_cache:
-    lda tile_status+page, X
-    sta tmp_byte
     lda #CACHED_MASK
     ora tile_cache_free_ptr
     sta tile_status+page, X
@@ -349,10 +323,8 @@ do_add_cache:
     lda tile_cache_list, Y
     sta tile_cache_free_ptr
 
-    // now use free list entry for status
-    lda tmp_byte
-    and #(DIRTY_FRAME_0|DIRTY_FRAME_1)
-    ora #1
+    // now use free list entry for count
+    lda #1
     sta tile_cache_list, Y
 
     // set dirty range
@@ -364,22 +336,26 @@ do_add_cache:
     tax
 
     lda rangetab-8, X
-    ora tmp_byte2
-
-    ldx this_frame_mask
-    cpx #DIRTY_FRAME_0
-    if (equal)
-    {
-        tax
-        lda #$FF
-    }
-    else
-    {
-        ldx #$FF
-    }
     sta tile_cache_dirty_range_0, Y
-    txa
     sta tile_cache_dirty_range_1, Y
+
+    // if a frame was dirty we must consider its whole range dirty
+    ldx #$FF
+    lda tmp_byte
+    and #DIRTY_FRAME_0
+    if (not zero)
+    {
+        txa
+        sta tile_cache_dirty_range_0, Y
+    }
+
+    lda tmp_byte
+    and #DIRTY_FRAME_1
+    if (not zero)
+    {
+        txa
+        sta tile_cache_dirty_range_1, Y
+    }
 
     tile_cache_update_set()
 
@@ -432,12 +408,7 @@ inline remove_prim_cached(page)
 
     and #CACHE_LINE_MASK
     tax
-    lda tile_cache_list, X
-
-    ora this_frame_mask
-    sta tile_cache_list, X
-
-    tay
+    ldy tile_cache_list, X
     dey
     sty tile_cache_list, X
     tya
@@ -481,12 +452,12 @@ inline remove_prim_cached(page)
         and #CACHE_LINE_MASK
         tax
 
-        // take it off the free list
-        lda tile_cache_list, X
-        and #(DIRTY_FRAME_0|DIRTY_FRAME_1)
+        // other frame will need to pick up this clear
+        lda other_frame_mask
         ldy tmp_byte
         sta tile_status+page, Y
 
+        // take it off the free list
         lda tile_cache_free_ptr
         sta tile_cache_list, X
         stx tile_cache_free_ptr
@@ -531,17 +502,15 @@ inline remove_prim(page)
     sbc #1
 
     bit this_frame_mask
-    bne remove_update
-    ora this_frame_mask
-
-    bit other_frame_mask
     bne remove_copy
 
 remove_update:
-    // TF || !OF
+    and #COUNT_MASK
+    tay
+    ora other_frame_mask
     sta tile_status+page, X
 
-    bit count_mask_zp
+    tya
     if (zero)
     {
         cmd_clr_lines()
@@ -554,10 +523,12 @@ remove_update:
     rts
 
 remove_copy:
-    // !TF && OF
+    and #COUNT_MASK
+    tay
+    ora other_frame_mask
     sta tile_status+page, X
 
-    bit count_mask_zp
+    tya
     if (zero)
     {
         cmd_tile_clear()
