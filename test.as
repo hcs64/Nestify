@@ -39,11 +39,6 @@ interrupt.nmi int_nmi()
     lda #1  // 2
     sta nmi_hit // 3
 
-    sty rndy    // 3
-    stx rndx    // 3
-    ldy pal_cur
-    set_palette()   // 6 + 60
-
     process_dlist() // 6+
 
     pla
@@ -141,13 +136,6 @@ function mystify_test()
     sta head_poly
     sta tail_poly
 
-    lda #$21
-    sta pal_cur
-    lda #$0
-    sta pal_timer
-    lda #$5
-    sta pal_delay
-
     // draw initial polygons
     draw_poly()
     draw_poly()
@@ -156,96 +144,14 @@ function mystify_test()
 
     finish_frame()
 
+    //lda #0
+    //sta highest_frame_time
+
     forever {
         clear_poly()
         draw_poly()
-
-        change_palette()
         finish_frame()
     }
-}
-
-function change_palette()
-{
-    dec pal_timer
-    bmi time_to_go
-    rts
-time_to_go:
-
-    lda pal_delay
-    sta pal_timer
-
-    lda pal_dest
-    cmp pal_cur
-    if (equal)
-    {
-        lda rndx
-        and #$3F
-        sta pal_dest
-
-        and #$F
-        cmp #$C
-        if (not minus)
-        {
-            lda pal_dest
-            and #$37
-            sta pal_dest
-        }
-
-        lda pal_dest
-        and #$30
-        if (zero)
-        {
-            lda pal_dest
-            ora #$10
-            sta pal_dest
-        }
-
-        lda rndy
-        and #3
-        clc
-        adc #5
-        sta pal_delay
-    }
-
-    lda pal_dest
-    and #$F
-    sta tmp_byte
-
-    lda pal_cur
-    and #$F
-    cmp tmp_byte
-    beq pal_hue_done
-    bpl pal_hue_pl
-    inc pal_cur
-    bne pal_change_end
-pal_hue_pl:
-    dec pal_cur
-    jmp pal_change_end
-
-pal_hue_done:
-
-    lda pal_dest
-    and #$30
-    sta tmp_byte
-
-    lda pal_cur
-    and #$30
-    cmp tmp_byte
-    beq pal_change_end
-    bpl pal_value_pl
-    clc
-    lda pal_cur
-    adc #$10
-    sta pal_cur
-    bne pal_change_end
-pal_value_pl:
-    sec
-    lda pal_cur
-    sbc #$10
-    sta pal_cur
-
-pal_change_end:
 }
 
 function draw_poly()
@@ -425,15 +331,12 @@ function clear_vram()
 
 function init_vram()
 {
-    ldy #$21
-    set_palette()
+    init_palette()
     init_attrs()
     init_names()
 }
 
-// Y = fg color
-// 60 cycles w/ rts
-function set_palette()
+function init_palette()
 {
     // Setup palette
     lda #hi(PAL_0_ADDRESS)
@@ -442,7 +345,8 @@ function set_palette()
     sta PPU.ADDRESS
 
     // palette 0
-    ldx #0x0f   // bg
+    ldx #0x0F   // bg
+    ldy #0x20   // fg
     stx PPU.IO  // 00: bg
     sty PPU.IO  // 01: fg
     stx PPU.IO  // 10: bg
