@@ -194,17 +194,11 @@ time_to_go:
 
         lda pal_dest
         and #$30
-        if (zero)
-        {
-            lda pal_dest
-            ora #$10
-            sta pal_dest
-        }
 
         lda rndy
         and #3
         clc
-        adc #5
+        adc #3
         sta pal_delay
     }
 
