@@ -94,6 +94,9 @@ vwait2:
 
 /******************************************************************************/
 
+sintab:
+#incbin "sintab.bin"
+
 interrupt.start noreturn main()
 {
     system_initialize_custom()
@@ -118,194 +121,70 @@ interrupt.start noreturn main()
 
     // test begins
 
-    mystify_test()
+    pentagram_test()
 }
 
-byte points_rom[] = {10,10,2,5, 160,100,-3,-7, 70,160,-6,-8, 100,35,2,-3}
-
-function mystify_test()
+function pentagram_test()
 {
-    ldx #15
-    do {
-        lda points_rom, X
-        sta points, X
-        dex
-    } while (not minus)
+    ldx #0
+    stx angle
 
-    lda #0
-    sta head_poly
-    sta tail_poly
+    forever
+    {
+        line_angles( 00, 26)
+        line_angles( 26, 51)
+        line_angles( 51, 77)
+        line_angles( 77, 102)
+        line_angles( 102, 0)
 
-    // draw initial polygons
-    draw_poly()
-    draw_poly()
-    draw_poly()
-    draw_poly()
+        line_angles( 00, 51)
+        line_angles( 26, 77)
+        line_angles( 51, 102)
+        line_angles( 77, 0)
+        line_angles( 102, 26)
 
-    finish_frame()
+    /*
+        line_angles( ( (128*0)/5), ( (128*1)/5))
+        line_angles( ( (128*1)/5), ( (128*2)/5))
+        line_angles( ( (128*2)/5), ( (128*3)/5))
+        line_angles( ( (128*3)/5), ( (128*4)/5))
+        line_angles( ( (128*4)/5), ( (128*0)/5))
 
-    //lda #0
-    //sta highest_frame_time
+        line_angles( ( (128*0)/5), ( (128*2)/5))
+        line_angles( ( (128*1)/5), ( (128*3)/5))
+        line_angles( ( (128*2)/5), ( (128*4)/5))
+        line_angles( ( (128*3)/5), ( (128*0)/5))
+        line_angles( ( (128*4)/5), ( (128*1)/5))
+    */
 
-    forever {
-        clear_poly()
-        draw_poly()
         finish_frame()
+
+        ldx angle
+        inx
+        cpx #26
+        if (equal)
+        {
+            ldx #0
+        }
+        stx angle
     }
 }
 
-function draw_poly()
+inline line_angles(ang0, ang1)
 {
-    ldx head_poly
+    ldx angle
 
-    setup_poly_line(0)
-    setup_poly_line(1)
-    setup_poly_line(2)
-    setup_poly_line(3)
-
-    draw_poly_line(0)
-    draw_poly_line(1)
-    draw_poly_line(2)
-    draw_poly_line(3)
-
-    lda head_poly
-    clc
-    adc #sizeof(line_s)*NUM_POLYS
-    and #POLY_WRAP_MASK
-    sta head_poly
-
-    update_poly_point(0)
-    update_poly_point(1)
-    update_poly_point(2)
-    update_poly_point(3)
-}
-
-function clear_poly()
-{
-    clear_poly_line(0)
-    clear_poly_line(1)
-    clear_poly_line(2)
-    clear_poly_line(3)
-
-    lda tail_poly
-    clc
-    adc #sizeof(line_s)*NUM_POLYS
-    and #POLY_WRAP_MASK
-    sta tail_poly
-}
-
-inline setup_poly_line(num)
-{
-    lda points[num].x
-    sta lines[(num-1)&3].x1, X
-    sta lines[num].x0, X
-    lda points[num].y
-    sta lines[(num-1)&3].y1, X
-    sta lines[num].y0, X
-}
-
-inline draw_poly_line(num)
-{
-    ldx head_poly
-
-    lda lines[num].x0, X
-    sta line_x0
-    lda lines[num].y0, X
+    lda sintab+(ang0), X
     sta line_y0
-    lda lines[num].x1, X
-    sta line_x1
-    lda lines[num].y1, X
+    lda sintab+32+(ang0), X
+    sta line_x0
+
+    lda sintab+(ang1), X
     sta line_y1
+    lda sintab+32+(ang1), X
+    sta line_x1
 
     bresenham_set()
-}
-
-inline clear_poly_line(num)
-{
-    ldx tail_poly
-
-    lda lines[num].x0, X
-    sta line_x0
-    lda lines[num].y0, X
-    sta line_y0
-    lda lines[num].x1, X
-    sta line_x1
-    lda lines[num].y1, X
-    sta line_y1
-
-    bresenham_clr()
-}
-
-inline update_poly_point(num)
-{
-    clc
-    lda points[num].vx
-    if (minus)
-    {
-        adc points[num].x
-
-        cmp points[num].x
-        if (carry)
-        {
-            ldy #0
-            beq flip_x
-        }
-    }
-    else
-    {
-        adc points[num].x
-
-        cmp #TILES_WIDE*8
-        if (carry)
-        {
-            ldy #(TILES_WIDE*8)-1
-
-flip_x:
-            lda points[num].vx
-            eor #0xFF
-            tax
-            inx
-            stx points[num].vx
-
-            tya
-        }
-    }
-    sta points[num].x
-
-    clc
-    lda points[num].vy
-
-    if (minus)
-    {
-        adc points[num].y
-
-        cmp points[num].y
-        if (carry)
-        {
-            ldy #0
-            beq flip_y
-        }
-    }
-    else
-    {
-        adc points[num].y
-
-        cmp #TILES_HIGH*8
-        if (carry)
-        {
-            ldy #(TILES_HIGH*8)-1
-
-flip_y:
-            lda points[num].vy
-            eor #0xFF
-            tax
-            inx
-            stx points[num].vy
-
-            tya
-        }
-    }
-    sta points[num].y
 }
 
 /******************************************************************************/

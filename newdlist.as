@@ -164,6 +164,10 @@ function finalize_dlist()
         ldy #lo(dlist)
     }
     sty dlist_next_cmd_write
+
+    lda #0
+    sta dlist_cycles_left0
+    sta dlist_cycles_left1
 }
 
 // ******** command utils

@@ -8,7 +8,8 @@ vector.as
 PREGEN = \
 rangetab.bin \
 updaterange.bin \
-codegen.as
+codegen.as \
+sintab.bin
 
 IMAGES =
 
@@ -28,6 +29,9 @@ rangetab.bin: rangetab.py
 
 updaterange.bin: updaterange.py
 	$(PYTHON) updaterange.py
+
+sintab.bin: sintab.py
+	$(PYTHON) sintab.py
 
 codegen.as: codegen.py
 	$(PYTHON) codegen.py > codegen.as

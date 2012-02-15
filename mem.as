@@ -29,7 +29,7 @@ byte pad00
 // tile status bits
 byte this_frame_mask,       pad01
 byte other_frame_mask,      pad02
-byte count_mask_zp,         pad03
+byte pad03a,                pad03
 byte cur_nametable_page,    pad04
 
 // small dlist stuff
@@ -66,8 +66,7 @@ byte line_block1,           pad1c
 byte line_err0,             pad1d
 byte line_err1,             pad1e
 
-byte head_poly,             pad1f
-byte tail_poly,             pad20
+byte angle,                 pad1f
 
 #ram.end
 
@@ -105,17 +104,6 @@ byte stack[0x20]
 stack_end:
 
 // 
-#define NUM_POLYS 4
-#define POLY_WRAP_MASK %110000
-typedef struct point_s {
-    byte x, y, vx, vy
-}
-point_s points[4]
-
-typedef struct line_s {
-    byte x0, x1, y0, y1
-}
-line_s lines[4*NUM_POLYS]
 
 #ram.end
 
@@ -139,7 +127,7 @@ byte tile_cache[TILE_CACHE_ELEMENTS*8]
 #define CACHED_MASK     0x80
 #define DIRTY_FRAME_0   0x40
 #define DIRTY_FRAME_1   0x20
-#define COUNT_MASK      0x1F
+#define TILE_USED_MASK  0x10
 #define CACHE_LINE_MASK 0x7F
 
 byte tile_status[TILES_WIDE*TILES_HIGH]
