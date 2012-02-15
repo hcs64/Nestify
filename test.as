@@ -143,20 +143,6 @@ function pentagram_test()
         line_angles( 77, 0)
         line_angles( 102, 26)
 
-    /*
-        line_angles( ( (128*0)/5), ( (128*1)/5))
-        line_angles( ( (128*1)/5), ( (128*2)/5))
-        line_angles( ( (128*2)/5), ( (128*3)/5))
-        line_angles( ( (128*3)/5), ( (128*4)/5))
-        line_angles( ( (128*4)/5), ( (128*0)/5))
-
-        line_angles( ( (128*0)/5), ( (128*2)/5))
-        line_angles( ( (128*1)/5), ( (128*3)/5))
-        line_angles( ( (128*2)/5), ( (128*4)/5))
-        line_angles( ( (128*3)/5), ( (128*0)/5))
-        line_angles( ( (128*4)/5), ( (128*1)/5))
-    */
-
         finish_frame()
 
         ldx angle
