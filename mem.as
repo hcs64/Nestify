@@ -122,7 +122,7 @@ byte dlist_bitmap_3[0x60]   // 6, 7
 byte tile_cache[TILE_CACHE_ELEMENTS*8]
 #ram.end
 
-#ram.org 0x608, 0x1F8
+#ram.org 0x600, 0x200
 
 #define CACHED_MASK     0x80
 #define DIRTY_FRAME_0   0x40
@@ -131,4 +131,6 @@ byte tile_cache[TILE_CACHE_ELEMENTS*8]
 #define CACHE_LINE_MASK 0x7F
 
 byte tile_status[TILES_WIDE*TILES_HIGH]
+byte tile_status_pad[7]
+byte tile_status_sentinel
 #ram.end

@@ -17,11 +17,6 @@ function init_tracktiles()
     do {
         inx
         sta tile_status, X
-    } while (not zero)
-
-    ldx #(TILES_WIDE*TILES_HIGH)-0x100
-    do {
-        dex
         sta tile_status+0x100, X
     } while (not zero)
 
@@ -55,21 +50,13 @@ function init_tracktiles()
     sta this_frame_mask
     lda #DIRTY_FRAME_1
     sta other_frame_mask
+
+    lda #$FF
+    sta tile_status_sentinel
 }
 
-inline tracktiles_finish_frame0(count, page)
+inline tracktiles_finish_frame0(page, finish_target)
 {
-    ldx #count
-
-finish_loop:
-        dex
-
-        lda tile_status+page, X
-
-        beq no_finish_halfway
-
-        bmi finish_cache
-
         // clear tile (no-preseve mode)
         tay
         and #TILE_USED_MASK
@@ -81,13 +68,13 @@ finish_loop:
             and #~TILE_USED_MASK
             ora this_frame_mask
             sta tile_status+page,X
-            jmp no_finish_halfway
+            jmp finish_target
         }
 
         // never need to update if this frame is clean
         tya
         bit this_frame_mask
-        beq no_finish_halfway
+        beq finish_target
 
         stx tmp_byte2
         tay
@@ -105,15 +92,12 @@ finish_loop:
         sta cmd_addr1
 
         cmd_tile_clear()
-        jmp finish_finished
 
-no_finish_halfway:
-        cpx #0
-        bne finish_loop
-        jmp finish_loop_end
+        ldx tmp_byte2
+}
 
-finish_cache:
-
+inline tracktiles_finish_frame_cached0(page, finish_target)
+{
         and #CACHE_LINE_MASK
         tay
 
@@ -183,25 +167,47 @@ no_dirty_lines:
         sta tile_cache_dirty_range_0, Y
         sta tile_cache_dirty_range_1, Y
 
-finish_finished:
         ldx tmp_byte2
 
-no_finish_needed:
-
-        cpx #0
-    beq finish_loop_end
-    jmp finish_loop
-
-finish_loop_end:
-    nop
+        jmp finish_target
 }
 
+finish_frame_p0_cache:
+    tracktiles_finish_frame_cached0(0, finish_frame_check_p1)
+    // unreachable
+
+#align 256
 function tracktiles_finish_frame()
 {
-    // update any stragglers from last frame, or cached dirties from this
-    tracktiles_finish_frame0(0,0)
-    tracktiles_finish_frame0( (TILES_WIDE*TILES_HIGH)-0x100, 0x100)
+    ldx #$FF
 
+ finish_frame_loop:
+    inx
+
+    lda tile_status, X
+
+    beq finish_frame_check_p1
+    bmi finish_frame_p0_cache
+
+    tracktiles_finish_frame0(0, finish_frame_check_p1)
+
+finish_frame_check_p1:
+    
+    lda tile_status+0x100, X
+    beq finish_frame_loop
+    bmi finish_frame_p1_cache
+
+    tracktiles_finish_frame0(0x100, finish_frame_loop)
+    jmp finish_frame_loop
+
+finish_frame_p1_cache:
+    cpx #$FF
+    beq finish_frame_complete
+
+    tracktiles_finish_frame_cached0(0x100, finish_frame_loop)
+    // unreachable
+ 
+finish_frame_complete:
     // swap masks
     lda this_frame_mask
     ldx other_frame_mask
