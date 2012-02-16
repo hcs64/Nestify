@@ -837,9 +837,9 @@ function tile_cache_remove()
     asl A
     tay
 
-    bcs tile_cache_remove_8_lines1
-
     lda #0
+
+    bcs tile_cache_remove_8_lines1
 
 tile_cache_remove_8_lines:
     sta tile_cache+7, Y
